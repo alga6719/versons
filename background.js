@@ -1,10 +1,12 @@
-import ProTraderModule from './bots/pro_trader_module.js';
-import bot from './bots/pro_trader_bot.js';
+import ProTraderModule from './pro_trader_module.js';
+import bot from './pro_trader_bot.js';
 import GlobalScanner from './global_scanner.js';
 
 console.log('TrendIQ v2.7 background starting');
 
 const agents = {};
+
+chrome.runtime.onMessage.addListener(console.log);
 
 chrome.runtime.onInstalled.addListener(() => {
   ProTraderModule.init();

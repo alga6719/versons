@@ -1,4 +1,4 @@
-import ProTraderModule from './bots/pro_trader_module.js';
+import ProTraderModule from './pro_trader_module.js';
 
 let CONFIG = {
   tickers: [
