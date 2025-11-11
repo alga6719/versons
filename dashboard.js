@@ -1,96 +1,83 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const ctx = document.getElementById('scoreChart').getContext('2d');
+const symbolSelect = document.getElementById('symbolSelect');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const recText = document.getElementById('recText');
+const positionList = document.getElementById('positionList');
+const topListDiv = document.getElementById('topList');
+const openOpportunities = document.getElementById('openOpportunities');
 
-  const tokenLines = {};
-  const tokenColors = ['#007aff', '#34c759', '#ff9500', '#ff3b30', '#af52de'];
-  const timestamps = [];
+let chart = null;
+let chartReady = false;
+let positions = {};
 
-  const scoreChart = new Chart(ctx, {
+function initChart() {
+  const ctx = document.getElementById('scoresChart').getContext('2d');
+  chart = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels: timestamps,
-      datasets: []
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: 'bottom' } },
-      animation: false
-    }
+    data: { labels: [], datasets: [
+      { label: 'Composite', data: [], borderColor: 'rgb(30,99,255)', tension: 0.2, pointRadius: 0 },
+      { label: 'Trader Influence (scaled)', data: [], borderColor: 'rgb(34,197,94)', tension: 0.2, pointRadius: 0 }
+    ] },
+    options: { animation: false, responsive: true, scales: { y: { min: -100, max: 100 } } }
   });
+  chartReady = true;
+}
 
-  function log(msg) {
-    const el = document.getElementById('logPanel');
-    if (el) {
+function addChartPoint(timeLabel, composite, influenceScaled) {
+  if (!chartReady) initChart();
+  chart.data.labels.push(timeLabel);
+  chart.data.datasets[0].data.push(composite);
+  chart.data.datasets[1].data.push(influenceScaled);
+  if (chart.data.labels.length > 80) {
+    chart.data.labels.shift();
+    chart.data.datasets.forEach(ds => ds.data.shift());
+  }
+  chart.update();
+}
+
+function setRecommendationText(obj) {
+  recText.textContent = JSON.stringify(obj, null, 2);
+}
+
+function updatePositions(symbol, decision) {
+  positions[symbol] = decision;
+  positionList.innerHTML = '';
+  Object.keys(positions).forEach(s => {
+    const li = document.createElement('li');
+    const dec = positions[s] || {};
+    li.textContent = `${s}: ${dec.action || 'hold'} size:${(dec.size || 0).toFixed ? (dec.size || 0).toFixed(2) : dec.size} recommendation:${dec.recommendation ? dec.recommendation.action : '-'}`;
+    positionList.appendChild(li);
+  });
+}
+
+if (typeof chrome !== 'undefined' && chrome.runtime) {
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (!msg || !msg.type) return;
+
+    if (msg.type === 'trendiq:papertradeDecision') {
       const time = new Date().toLocaleTimeString();
-      el.innerHTML += `[${time}] ${msg}<br>`;
-      el.scrollTop = el.scrollHeight;
+      const c = msg.sig.composite || 0;
+      const influence = (msg.sig.traderInfluence || 0) * 100;
+      addChartPoint(time, c, influence);
+      updatePositions(msg.symbol, msg.decision || {});
+      if (msg.decision && msg.decision.recommendation) setRecommendationText(msg.decision.recommendation);
     }
-  }
 
-  const worker = new Worker('bots/adaptive_weights.js');
-
-  worker.onmessage = (event) => {
-    const { type, score, symbol, msg } = event.data;
-    if (type === 'prediction') {
-      const now = new Date().toLocaleTimeString();
-      if (!timestamps.includes(now)) timestamps.push(now);
-      if (timestamps.length > 10) timestamps.shift();
-
-      if (!tokenLines[symbol]) {
-        const color = tokenColors[Object.keys(tokenLines).length % tokenColors.length];
-        tokenLines[symbol] = {
-          label: symbol,
-          data: [],
-          fill: false,
-          borderColor: color
-        };
-        scoreChart.data.datasets.push(tokenLines[symbol]);
-      }
-
-      const line = tokenLines[symbol];
-      line.data.push(score);
-      if (line.data.length > 10) line.data.shift();
-
-      scoreChart.data.labels = timestamps;
-      scoreChart.update();
-
-      log(`Prediction for ${symbol}: ${score.toFixed(4)}`);
-    } else if (type === 'status') {
-      log(`Worker: ${msg}`);
-    } else if (type === 'error') {
-      log(`⚠️ ERROR: ${msg}`);
+    if (msg.type === 'trendiq:scannerUpdate' || msg.type === 'trendiq:topOpportunities') {
+      const top = msg.top || msg.topList || [];
+      topListDiv.innerHTML = top.map(t => `<div style="padding:6px;border-bottom:1px solid #f1f1f1"><strong>${t.symbol}</strong> — ${Number(t.normalized).toFixed(1)}% <small style="color:#666">${t.raw.toFixed(2)}</small></div>`).join('');
     }
-  };
-
-  async function fetchTop5Solana() {
-    const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=solana-ecosystem&order=market_cap_desc&per_page=25&page=1&sparkline=false&price_change_percentage=1h,24h";
-    try {
-      const res = await fetch(url, {
-        headers: { 'x-cg-pro-api-key': 'CG-4mhu23ZJbY2MH2xuXwDF2FPa' }
-      });
-      const tokens = await res.json();
-      if (!Array.isArray(tokens)) return;
-      const top = tokens.slice(0, 5);
-      top.forEach((token, i) => {
-        const features = {
-          slope: token.price_change_percentage_1h_in_currency / 100,
-          volSpike: Math.log(token.total_volume / 1e6),
-          obImb: 0,
-          recentVolMean: Math.log(token.market_cap / 1e6),
-          lastClose: Math.log(token.current_price)
-        };
-        worker.postMessage({ type: "predict", symbol: token.symbol.toUpperCase(), features });
-      });
-    } catch (err) {
-      log("⚠️ CoinGecko fetch failed.");
-      console.warn(err);
-    }
-  }
-
-  document.querySelector("button").addEventListener("click", () => {
-    log("Polling CoinGecko + running ML every 15s...");
-    worker.postMessage({ type: "init" });
-    fetchTop5Solana();
-    setInterval(fetchTop5Solana, 15000);
   });
+}
+
+startBtn.addEventListener('click', () => {
+  chrome.runtime.sendMessage({ type: 'trendiq:startSymbol', symbol: symbolSelect.value });
+});
+
+stopBtn.addEventListener('click', () => {
+  chrome.runtime.sendMessage({ type: 'trendiq:stopSymbol', symbol: symbolSelect.value });
+});
+
+openOpportunities.addEventListener('click', () => {
+  window.open(chrome.runtime.getURL('opportunities.html'), '_blank');
 });
