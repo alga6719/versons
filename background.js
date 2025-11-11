@@ -6,6 +6,8 @@ console.log('TrendIQ v2.7 background starting');
 
 const agents = {};
 
+chrome.runtime.onMessage.addListener(console.log);
+
 chrome.runtime.onInstalled.addListener(() => {
   ProTraderModule.init();
   GlobalScanner.init({
