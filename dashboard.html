@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrendIQ – Solana Token Dashboard Extension</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      background: #f8f9fa;
+      color: #333;
+    }
+    header {
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      padding: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin: 0;
+    }
+    .header-controls {
+      display: flex;
+      gap: 0.75rem;
+    }
+    select, button {
+      padding: 0.5rem 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    main {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 2rem;
+      padding: 2rem;
+    }
+    .card {
+      background: #fff;
+      padding: 1rem 1.5rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .recommendation, .open-positions, .rug-table {
+      margin-top: 1.5rem;
+    }
+    .buy { color: #0a934d; font-weight: bold; }
+    .sell { color: #d23c3c; font-weight: bold; }
+    .hold { color: #e6a300; font-weight: bold; }
+    footer {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #888;
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TrendIQ v4.2 ML</h1>
+    <div class="header-controls">
+      <select><option>SOLUSDT</option></select>
+      <button style="background:#34c759; color:white;">Start</button>
+      <button style="background:white; border:1px solid #34c759; color:#34c759;">Opportunities</button>
+    </div>
+  </header>
+
+  <main>
+    <div>
+      <div class="card">
+        <h2>Scores (Live)</h2>
+        <canvas id="scoreChart" height="150"></canvas>
+      </div>
+
+      <div class="card recommendation">
+        <h3>Latest Recommendation</h3>
+        <div style="font-size:2rem; background:#0a934d; color:white; padding:1rem; border-radius:8px; text-align:center;">BUY<br/><span style="font-size:0.9rem;">now</span></div>
+      </div>
+
+      <div class="card open-positions">
+        <h3>Open Positions</h3>
+        <ul>
+          <li><span class="buy">SOL</span> — BUY now</li>
+          <li><span class="sell">APT</span> — SELL now</li>
+          <li><span class="hold">RAY</span> — HOLD in 3 min</li>
+        </ul>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Top Opportunities</h3>
+        <ul>
+          <li><strong>SRMUSDT</strong> — <span class="buy">68</span></li>
+          <li><strong>FTTUSDT</strong> — <span class="hold">78</span></li>
+          <li><strong>GALAUSDT</strong> — <span class="hold">72</span></li>
+          <li><strong>RAYUSDT</strong> — <span class="sell">68</span></li>
+        </ul>
+      </div>
+
+      <div class="card rug-table">
+        <h3>Rug-Pull / Token Scanner</h3>
+        <table width="100%">
+          <thead>
+            <tr><th>Token</th><th>Price</th><th>Signal</th><th>Notes</th><th>Time</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>TOKENX</td><td>$0.125</td><td class="buy">BUY</td><td>Dip to $0.12</td><td>10 min</td></tr>
+            <tr><td>TOKENY</td><td>$0.205</td><td class="hold">HOLD</td><td>Buy in 15m</td><td>15 min</td></tr>
+            <tr><td>TOKENZ</td><td>$0.080</td><td class="sell">SELL</td><td>Sell if < $0.078</td><td>5 min</td></tr>
+            <tr><td>TOKENA</td><td>$0.310</td><td class="buy">BUY</td><td>Low liquidity</td><td>N/A</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  
+  <section class="card" style="margin: 2rem;">
+    <h3>Logs</h3>
+    <div id="logPanel" style="font-family: monospace; background: #f4f4f4; border: 1px solid #ddd; padding: 1rem; max-height: 200px; overflow-y: auto; font-size: 0.85rem;"></div>
+  </section>
+<footer>
+    Powered by TrendIQ ML Engine | v4.2 Stable Release
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="dashboard.js"></script>
+  <!--
+    const ctx = document.getElementById('scoreChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: ["10:00", "10:20", "10:40", "11:00"],
+        datasets: [
+          { label: 'Score', data: [10, 30, 50, 40], borderColor: '#007aff', fill: false },
+          { label: 'Trend', data: [-20, -30, 10, 45], borderColor: '#34c759', borderDash: [5,5], fill: false }
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  -->
+</body>
+</html>
