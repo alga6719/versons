@@ -70,14 +70,24 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
   });
 }
 
+function sendRuntimeMessage(payload) {
+  if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
+    chrome.runtime.sendMessage(payload);
+  } else {
+    console.warn('chrome.runtime.sendMessage is unavailable', payload);
+  }
+}
+
 startBtn.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'trendiq:startSymbol', symbol: symbolSelect.value });
+  sendRuntimeMessage({ type: 'trendiq:startSymbol', symbol: symbolSelect.value });
 });
 
 stopBtn.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'trendiq:stopSymbol', symbol: symbolSelect.value });
+  sendRuntimeMessage({ type: 'trendiq:stopSymbol', symbol: symbolSelect.value });
 });
 
 openOpportunities.addEventListener('click', () => {
-  window.open(chrome.runtime.getURL('opportunities.html'), '_blank');
+  const hasRuntimeUrl = typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function';
+  const url = hasRuntimeUrl ? chrome.runtime.getURL('opportunities.html') : 'opportunities.html';
+  window.open(url, '_blank');
 });
