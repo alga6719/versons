@@ -9,3 +9,4 @@
 ## Notes
 - This build uses mock signals for demonstration. Replace computeMockSignals and symbolAgentTick with real exchange calls for production.
 - Add API keys securely and implement rate limiting when connecting to exchanges.
+- The background service worker can only be tested in a full Chrome UI environment. To verify bot modules load correctly, reload the unpacked extension via `chrome://extensions` and check the **Service Worker** console for missing module errors.
