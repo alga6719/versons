@@ -1,4 +1,4 @@
-import ProTraderModule from './bots/pro_trader_module.js';
+import ProTraderModule from './pro_trader_module.js';
 
 let CONFIG = {
   tickers: [
@@ -21,7 +21,7 @@ let CONFIG = {
 };
 
 let _timer = null;
-let _callbacks = [];
+let _callbacks = new Set();
 let _history = {};
 
 function computeMockSignals(symbol) {
@@ -69,7 +69,7 @@ export default {
     if (pollIntervalMs != null) CONFIG.pollIntervalMs = pollIntervalMs;
     if (tickers) CONFIG.tickers = tickers;
     if (topN != null) CONFIG.topN = topN;
-    if (onUpdate) _callbacks.push(onUpdate);
+    if (onUpdate) _callbacks.add(onUpdate);
     if (_timer) clearInterval(_timer);
     _timer = setInterval(scanOnce, CONFIG.pollIntervalMs);
     setTimeout(scanOnce, 100);
@@ -80,5 +80,8 @@ export default {
     if (cfg.topN != null) CONFIG.topN = cfg.topN;
   },
   getConfig() { return { ...CONFIG }; },
-  stop() { if (_timer) clearInterval(_timer); _timer = null; }
+  stop() {
+    if (_timer) clearInterval(_timer);
+    _timer = null;
+  }
 };

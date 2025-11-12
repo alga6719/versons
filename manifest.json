@@ -3,7 +3,7 @@
   "name": "TrendIQ v2.7 ProTrader - Solana Opportunity Engine",
   "version": "2.7.0",
   "description": "TrendIQ v2.7 (Solana-only): micro-patterns, orderbook imbalance, whale flows, pro-trader influence + global scanner for top Solana tokens.",
-  "background": { "service_worker": "background.js" },
+  "background": { "service_worker": "background.js", "type": "module" },
   "action": { "default_popup": "dashboard.html", "default_title": "TrendIQ v2.7" },
   "permissions": ["storage", "alarms", "tabs"],
   "host_permissions": ["<all_urls>"],

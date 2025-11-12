@@ -1,36 +1,70 @@
-import ProTraderModule from './bots/pro_trader_module.js';
-import bot from './bots/pro_trader_bot.js';
+import ProTraderModule from './pro_trader_module.js';
+import bot from './pro_trader_bot.js';
 import GlobalScanner from './global_scanner.js';
 
 console.log('TrendIQ v2.7 background starting');
 
 const agents = {};
+let initialized = false;
+let scannerCallback = null;
 
-chrome.runtime.onInstalled.addListener(() => {
-  ProTraderModule.init();
-  GlobalScanner.init({
+function startScanner() {
+  const config = {
     pollIntervalMs: 5000,
     tickers: GlobalScanner.getConfig().tickers,
-    topN: 20,
-    onUpdate: topList => {
-      try { chrome.runtime.sendMessage({ type: 'trendiq:topOpportunities', topList }); }
-      catch(e){ console.warn(e); }
-    }
-  });
-});
+    topN: 20
+  };
+
+  if (!scannerCallback) {
+    scannerCallback = topList => {
+      try {
+        chrome.runtime.sendMessage({ type: 'trendiq:topOpportunities', topList });
+      } catch (e) {
+        console.warn(e);
+      }
+    };
+  }
+
+  GlobalScanner.init({ ...config, onUpdate: scannerCallback });
+}
+
+function ensureInitialized({ force = false } = {}) {
+  if (initialized && !force) return;
+  ProTraderModule.init();
+  startScanner();
+  initialized = true;
+}
+
+ensureInitialized();
+
+if (chrome.runtime.onStartup) {
+  chrome.runtime.onStartup.addListener(() => ensureInitialized({ force: true }));
+}
+
+chrome.runtime.onInstalled.addListener(() => ensureInitialized({ force: true }));
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.type) return;
+
+  ensureInitialized();
+
   if (msg.type === 'trendiq:startSymbol') {
     const symbol = msg.symbol;
-    if (!agents[symbol]) agents[symbol] = setInterval(() => symbolAgentTick(symbol), 2500);
+    if (!agents[symbol]) {
+      agents[symbol] = setInterval(() => symbolAgentTick(symbol), 2500);
+    }
     sendResponse({ ok: true });
   }
+
   if (msg.type === 'trendiq:stopSymbol') {
     const symbol = msg.symbol;
-    if (agents[symbol]) { clearInterval(agents[symbol]); delete agents[symbol]; }
+    if (agents[symbol]) {
+      clearInterval(agents[symbol]);
+      delete agents[symbol];
+    }
     sendResponse({ ok: true });
   }
+
   if (msg.type === 'trendiq:setScannerConfig') {
     GlobalScanner.setConfig(msg.config || {});
     sendResponse({ ok: true, config: GlobalScanner.getConfig() });
