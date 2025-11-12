@@ -3,147 +3,433 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TrendIQ – Solana Token Dashboard Extension</title>
+  <title>TrendIQ – Token Intelligence Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-alt: #f0f4ff;
+      --text: #1b1d29;
+      --muted: #636b7b;
+      --accent: #4f46e5;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #facc15;
+      --border: rgba(99, 107, 123, 0.12);
+      font-size: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      font-family: system-ui, sans-serif;
       margin: 0;
-      background: #f8f9fa;
-      color: #333;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
+
     header {
-      background: #fff;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      padding: 1.5rem;
+      background: var(--surface);
+      padding: 1.5rem 2rem;
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
-    h1 {
-      font-size: 1.8rem;
+
+    header h1 {
+      font-size: 1.75rem;
       margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
     }
+
+    header h1 span {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
     .header-controls {
       display: flex;
+      align-items: center;
       gap: 0.75rem;
     }
-    select, button {
-      padding: 0.5rem 1rem;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-weight: 500;
-      cursor: pointer;
+
+    .search-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #f8f9ff;
     }
+
+    .search-group input {
+      border: none;
+      background: transparent;
+      font-size: 0.95rem;
+      min-width: 220px;
+      outline: none;
+    }
+
+    select, button {
+      padding: 0.55rem 1rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: white;
+      border: none;
+      box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
+    }
+
     main {
       display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 2rem;
+      grid-template-columns: 320px 1fr;
+      gap: 1.75rem;
       padding: 2rem;
+      align-items: start;
     }
+
+    aside {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
     .card {
-      background: #fff;
-      padding: 1rem 1.5rem;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      background: var(--surface);
+      border-radius: 18px;
+      padding: 1.35rem;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.4);
     }
-    .recommendation, .open-positions, .rug-table {
-      margin-top: 1.5rem;
+
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.15rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-    .buy { color: #0a934d; font-weight: bold; }
-    .sell { color: #d23c3c; font-weight: bold; }
-    .hold { color: #e6a300; font-weight: bold; }
+
+    .token-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .token-row {
+      padding: 0.9rem 1rem;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.75rem;
+      align-items: center;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .token-row.active {
+      border-color: var(--accent);
+      box-shadow: 0 12px 26px rgba(79, 70, 229, 0.18);
+    }
+
+    .token-row:hover {
+      transform: translateY(-2px);
+    }
+
+    .token-row .meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .token-row .meta span.symbol {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .token-row .meta span.name {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .token-row .score-pill {
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: white;
+      justify-self: flex-end;
+    }
+
+    .score-good { background: rgba(34, 197, 94, 0.85); }
+    .score-watch { background: rgba(250, 204, 21, 0.9); }
+    .score-risk { background: rgba(239, 68, 68, 0.85); }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .chart-card {
+      position: relative;
+      padding-bottom: 2.6rem;
+    }
+
+    .chart-legend {
+      position: absolute;
+      bottom: 1rem;
+      left: 1.5rem;
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .chart-legend span::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      margin-right: 0.4rem;
+      vertical-align: middle;
+    }
+
+    .chart-legend span.score::before { background: var(--accent); }
+    .chart-legend span.event::before { background: var(--warning); }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.85rem;
+      margin-top: 1rem;
+    }
+
+    .metric {
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      background: var(--surface-alt);
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      border: 1px solid rgba(79, 70, 229, 0.08);
+    }
+
+    .metric span.label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .metric span.value {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .rationale-list {
+      list-style: none;
+      padding: 0;
+      margin: 1rem 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .rationale-list li {
+      background: #fdf7ed;
+      border: 1px solid rgba(250, 204, 21, 0.35);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      display: flex;
+      gap: 0.6rem;
+      align-items: flex-start;
+    }
+
+    .rationale-list li::before {
+      content: "•";
+      color: var(--warning);
+      font-weight: bold;
+      margin-right: 0.25rem;
+    }
+
+    .timeline {
+      margin: 1rem 0 0;
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+      align-items: baseline;
+    }
+
+    .timeline-item .time {
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    th, td {
+      padding: 0.65rem 0.4rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(99, 107, 123, 0.08);
+    }
+
+    th { color: var(--muted); font-weight: 600; font-size: 0.8rem; letter-spacing: 0.05em; }
+
+    .news-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      margin-top: 1rem;
+    }
+
+    .news-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      background: #f8f9ff;
+    }
+
+    .news-item span.time {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
     footer {
       text-align: center;
-      font-size: 0.85rem;
-      color: #888;
-      padding: 1rem;
+      padding: 1.5rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+      aside {
+        order: 2;
+      }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>TrendIQ v4.2 ML</h1>
+    <h1>
+      TrendIQ Dealmaker Console
+      <span>Focused insights on the top Solana opportunities</span>
+    </h1>
     <div class="header-controls">
-      <select><option>SOLUSDT</option></select>
-      <button style="background:#34c759; color:white;">Start</button>
-      <button style="background:white; border:1px solid #34c759; color:#34c759;">Opportunities</button>
+      <div class="search-group">
+        <img src="https://cdn.jsdelivr.net/npm/heroicons@2.1.1/24/outline/magnifying-glass.svg" alt="" width="18" height="18" />
+        <input id="tokenSearch" type="search" placeholder="Search or add a token (e.g. BONK)" />
+      </div>
+      <select id="timeframeFilter">
+        <option value="5m">Last 5 minutes</option>
+        <option value="15m">Last 15 minutes</option>
+        <option value="1h">Last hour</option>
+      </select>
+      <button class="primary">Start Tracking</button>
     </div>
   </header>
 
   <main>
-    <div>
+    <aside>
       <div class="card">
-        <h2>Scores (Live)</h2>
-        <canvas id="scoreChart" height="150"></canvas>
+        <h2>Watchlist <span id="watchlistCount"></span></h2>
+        <div class="token-list" id="tokenList"></div>
+        <p id="emptyState" style="display:none; color: var(--muted); font-size:0.85rem;">No tokens match that search. Add it above to begin tracking.</p>
       </div>
-
-      <div class="card recommendation">
-        <h3>Latest Recommendation</h3>
-        <div style="font-size:2rem; background:#0a934d; color:white; padding:1rem; border-radius:8px; text-align:center;">BUY<br/><span style="font-size:0.9rem;">now</span></div>
-      </div>
-
-      <div class="card open-positions">
-        <h3>Open Positions</h3>
-        <ul>
-          <li><span class="buy">SOL</span> — BUY now</li>
-          <li><span class="sell">APT</span> — SELL now</li>
-          <li><span class="hold">RAY</span> — HOLD in 3 min</li>
-        </ul>
-      </div>
-    </div>
-
-    <div>
       <div class="card">
-        <h3>Top Opportunities</h3>
-        <ul>
-          <li><strong>SRMUSDT</strong> — <span class="buy">68</span></li>
-          <li><strong>FTTUSDT</strong> — <span class="hold">78</span></li>
-          <li><strong>GALAUSDT</strong> — <span class="hold">72</span></li>
-          <li><strong>RAYUSDT</strong> — <span class="sell">68</span></li>
-        </ul>
+        <h2>Manual Tracking</h2>
+        <p style="font-size:0.85rem; color:var(--muted);">Paste a contract or token symbol to pin it to the watchlist. TrendIQ will backfill the last 5 minutes of signals, highlight whale events, and monitor smart money flows automatically.</p>
+        <button style="width:100%; margin-top:0.75rem;" id="addTokenBtn">Add token to watchlist</button>
+      </div>
+    </aside>
+
+    <section class="detail-grid">
+      <div class="card chart-card">
+        <h2 id="activeTokenTitle">SOL / USDC • Short bias</h2>
+        <canvas id="scoreChart" height="220"></canvas>
+        <div class="chart-legend">
+          <span class="score">Recommendation score</span>
+          <span class="event">Key driver markers</span>
+        </div>
+        <div class="metrics-grid" id="metricGrid"></div>
       </div>
 
-      <div class="card rug-table">
-        <h3>Rug-Pull / Token Scanner</h3>
-        <table width="100%">
+      <div class="card">
+        <h2>Rationale</h2>
+        <ul class="rationale-list" id="rationaleList"></ul>
+        <div class="timeline" id="eventTimeline"></div>
+      </div>
+
+      <div class="card">
+        <h2>Whale &amp; Smart Money Blotter</h2>
+        <table>
           <thead>
-            <tr><th>Token</th><th>Price</th><th>Signal</th><th>Notes</th><th>Time</th></tr>
+            <tr>
+              <th>Time</th>
+              <th>Wallet</th>
+              <th>Action</th>
+              <th>Size</th>
+              <th>Note</th>
+            </tr>
           </thead>
-          <tbody>
-            <tr><td>TOKENX</td><td>$0.125</td><td class="buy">BUY</td><td>Dip to $0.12</td><td>10 min</td></tr>
-            <tr><td>TOKENY</td><td>$0.205</td><td class="hold">HOLD</td><td>Buy in 15m</td><td>15 min</td></tr>
-            <tr><td>TOKENZ</td><td>$0.080</td><td class="sell">SELL</td><td>Sell if < $0.078</td><td>5 min</td></tr>
-            <tr><td>TOKENA</td><td>$0.310</td><td class="buy">BUY</td><td>Low liquidity</td><td>N/A</td></tr>
-          </tbody>
+          <tbody id="whaleTable"></tbody>
         </table>
       </div>
-    </div>
+
+      <div class="card">
+        <h2>News &amp; Catalyst Feed</h2>
+        <div class="news-feed" id="newsFeed"></div>
+      </div>
+    </section>
   </main>
 
-  
-  <section class="card" style="margin: 2rem;">
-    <h3>Logs</h3>
-    <div id="logPanel" style="font-family: monospace; background: #f4f4f4; border: 1px solid #ddd; padding: 1rem; max-height: 200px; overflow-y: auto; font-size: 0.85rem;"></div>
-  </section>
-<footer>
-    Powered by TrendIQ ML Engine | v4.2 Stable Release
+  <footer>
+    Powered by TrendIQ ML Engine • Confidence scores update every 15 seconds
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="dashboard.js"></script>
-  <!--
-    const ctx = document.getElementById('scoreChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: ["10:00", "10:20", "10:40", "11:00"],
-        datasets: [
-          { label: 'Score', data: [10, 30, 50, 40], borderColor: '#007aff', fill: false },
-          { label: 'Trend', data: [-20, -30, 10, 45], borderColor: '#34c759', borderDash: [5,5], fill: false }
-        ]
-      },
-      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-    });
-  -->
 </body>
 </html>
