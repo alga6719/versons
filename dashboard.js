@@ -5,34 +5,95 @@ const recText = document.getElementById('recText');
 const positionList = document.getElementById('positionList');
 const topListDiv = document.getElementById('topList');
 const openOpportunities = document.getElementById('openOpportunities');
+const chartCanvas = document.getElementById('scoresChart');
+const chartCtx = chartCanvas.getContext('2d');
 
-let chart = null;
-let chartReady = false;
-let positions = {};
+const positions = {};
+const chartState = {
+  labels: [],
+  composite: [],
+  influence: []
+};
 
-function initChart() {
-  const ctx = document.getElementById('scoresChart').getContext('2d');
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: { labels: [], datasets: [
-      { label: 'Composite', data: [], borderColor: 'rgb(30,99,255)', tension: 0.2, pointRadius: 0 },
-      { label: 'Trader Influence (scaled)', data: [], borderColor: 'rgb(34,197,94)', tension: 0.2, pointRadius: 0 }
-    ] },
-    options: { animation: false, responsive: true, scales: { y: { min: -100, max: 100 } } }
+function renderChart() {
+  const width = chartCanvas.width;
+  const height = chartCanvas.height;
+  const margin = 24;
+  const minVal = -100;
+  const maxVal = 100;
+  const range = maxVal - minVal;
+
+  chartCtx.clearRect(0, 0, width, height);
+
+  chartCtx.strokeStyle = '#e5e7eb';
+  chartCtx.lineWidth = 1;
+  [minVal, 0, maxVal].forEach(v => {
+    const y = margin + (height - margin * 2) * (1 - (v - minVal) / range);
+    chartCtx.beginPath();
+    chartCtx.moveTo(margin, y);
+    chartCtx.lineTo(width - margin, y);
+    chartCtx.stroke();
+    chartCtx.fillStyle = '#6b7280';
+    chartCtx.font = '10px Arial';
+    chartCtx.fillText(`${v}`, 4, y + 3);
   });
-  chartReady = true;
+
+  const points = chartState.composite.length;
+  if (!points) return;
+
+  const stepX = points > 1 ? (width - margin * 2) / (points - 1) : 0;
+  const mapY = value => {
+    const clamped = Math.max(minVal, Math.min(maxVal, value));
+    return margin + (height - margin * 2) * (1 - (clamped - minVal) / range);
+  };
+
+  chartCtx.lineWidth = 2;
+  chartCtx.strokeStyle = 'rgb(30,99,255)';
+  chartCtx.beginPath();
+  chartState.composite.forEach((value, idx) => {
+    const x = margin + stepX * idx;
+    const y = mapY(value);
+    if (idx === 0) chartCtx.moveTo(x, y);
+    else chartCtx.lineTo(x, y);
+  });
+  chartCtx.stroke();
+
+  chartCtx.strokeStyle = 'rgb(34,197,94)';
+  chartCtx.beginPath();
+  chartState.influence.forEach((value, idx) => {
+    const x = margin + stepX * idx;
+    const y = mapY(value);
+    if (idx === 0) chartCtx.moveTo(x, y);
+    else chartCtx.lineTo(x, y);
+  });
+  chartCtx.stroke();
 }
 
 function addChartPoint(timeLabel, composite, influenceScaled) {
-  if (!chartReady) initChart();
-  chart.data.labels.push(timeLabel);
-  chart.data.datasets[0].data.push(composite);
-  chart.data.datasets[1].data.push(influenceScaled);
-  if (chart.data.labels.length > 80) {
-    chart.data.labels.shift();
-    chart.data.datasets.forEach(ds => ds.data.shift());
+  chartState.labels.push(timeLabel);
+  chartState.composite.push(Number(composite) || 0);
+  chartState.influence.push(Number(influenceScaled) || 0);
+  if (chartState.labels.length > 80) {
+    chartState.labels.shift();
+    chartState.composite.shift();
+    chartState.influence.shift();
   }
-  chart.update();
+  renderChart();
+}
+
+function sendRuntimeMessage(payload) {
+  if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
+    return Promise.resolve();
+  }
+  try {
+    const maybe = chrome.runtime.sendMessage(payload);
+    if (maybe && typeof maybe.then === 'function') {
+      return maybe.catch(() => {});
+    }
+  } catch (e) {
+    console.warn('sendMessage error', e);
+  }
+  return Promise.resolve();
 }
 
 function setRecommendationText(obj) {
@@ -71,13 +132,17 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
 }
 
 startBtn.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'trendiq:startSymbol', symbol: symbolSelect.value });
+  sendRuntimeMessage({ type: 'trendiq:startSymbol', symbol: symbolSelect.value });
 });
 
 stopBtn.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'trendiq:stopSymbol', symbol: symbolSelect.value });
+  sendRuntimeMessage({ type: 'trendiq:stopSymbol', symbol: symbolSelect.value });
 });
 
 openOpportunities.addEventListener('click', () => {
-  window.open(chrome.runtime.getURL('opportunities.html'), '_blank');
+  if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+    window.open(chrome.runtime.getURL('opportunities.html'), '_blank');
+  } else {
+    window.open('opportunities.html', '_blank');
+  }
 });

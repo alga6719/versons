@@ -35,6 +35,18 @@ function normalizeSymbol(symbol) {
   return String(symbol).trim().toUpperCase();
 }
 
+function sendRuntimeMessage(payload) {
+  if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') return;
+  try {
+    const maybe = chrome.runtime.sendMessage(payload);
+    if (maybe && typeof maybe.then === 'function') {
+      maybe.catch(() => {});
+    }
+  } catch (e) {
+    console.warn('sendMessage error', e);
+  }
+}
+
 function setUniverse(list = []) {
   const cleaned = (Array.isArray(list) ? list : [])
     .map(normalizeSymbol)
@@ -145,7 +157,7 @@ function scanOnce() {
     scored.sort((a, b) => b.normalized - a.normalized);
     const top = scored.slice(0, CONFIG.topN);
     _callbacks.forEach(cb => { try { cb(top); } catch (e) {} });
-    try { chrome.runtime.sendMessage({ type: 'trendiq:scannerUpdate', top }); } catch (e) {}
+    sendRuntimeMessage({ type: 'trendiq:scannerUpdate', top });
   } catch (e) {
     console.warn('scanner error', e);
   }
