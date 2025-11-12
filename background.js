@@ -1,22 +1,47 @@
-import ProTraderModule from './bots/pro_trader_module.js';
-import bot from './bots/pro_trader_bot.js';
+import ProTraderModule from './pro_trader_module.js';
+import bot from './pro_trader_bot.js';
 import GlobalScanner from './global_scanner.js';
 
 console.log('TrendIQ v2.7 background starting');
 
 const agents = {};
 
+let servicesStarted = false;
+
+function startServices({ force = false } = {}) {
+  if (servicesStarted && !force) return;
+  servicesStarted = true;
+
+  try {
+    ProTraderModule.init();
+  } catch (e) {
+    console.warn('ProTraderModule init failed', e);
+  }
+
+  try {
+    GlobalScanner.init({
+      pollIntervalMs: 5000,
+      tickers: GlobalScanner.getConfig().tickers,
+      topN: 20,
+      onUpdate: topList => {
+        try { chrome.runtime.sendMessage({ type: 'trendiq:topOpportunities', topList }); }
+        catch (e) { console.warn(e); }
+      }
+    });
+  } catch (e) {
+    console.warn('GlobalScanner init failed', e);
+  }
+}
+
+startServices();
+
 chrome.runtime.onInstalled.addListener(() => {
-  ProTraderModule.init();
-  GlobalScanner.init({
-    pollIntervalMs: 5000,
-    tickers: GlobalScanner.getConfig().tickers,
-    topN: 20,
-    onUpdate: topList => {
-      try { chrome.runtime.sendMessage({ type: 'trendiq:topOpportunities', topList }); }
-      catch(e){ console.warn(e); }
-    }
-  });
+  servicesStarted = false;
+  startServices({ force: true });
+});
+
+chrome.runtime.onStartup?.addListener(() => {
+  startServices({ force: true });
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

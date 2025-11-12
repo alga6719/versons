@@ -1,4 +1,4 @@
-import ProTraderModule from './bots/pro_trader_module.js';
+import ProTraderModule from './pro_trader_module.js';
 
 let CONFIG = {
   tickers: [
@@ -69,7 +69,7 @@ export default {
     if (pollIntervalMs != null) CONFIG.pollIntervalMs = pollIntervalMs;
     if (tickers) CONFIG.tickers = tickers;
     if (topN != null) CONFIG.topN = topN;
-    if (onUpdate) _callbacks.push(onUpdate);
+    if (onUpdate && !_callbacks.includes(onUpdate)) _callbacks.push(onUpdate);
     if (_timer) clearInterval(_timer);
     _timer = setInterval(scanOnce, CONFIG.pollIntervalMs);
     setTimeout(scanOnce, 100);
