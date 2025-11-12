@@ -8,6 +8,18 @@ const agents = {};
 let initialized = false;
 let scannerCallback = null;
 
+function safeSendMessage(payload) {
+  if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') return;
+  try {
+    const maybePromise = chrome.runtime.sendMessage(payload);
+    if (maybePromise && typeof maybePromise.then === 'function') {
+      maybePromise.catch(() => {});
+    }
+  } catch (e) {
+    console.warn('sendMessage error', e);
+  }
+}
+
 function startScanner() {
   const config = {
     pollIntervalMs: 5000,
@@ -17,11 +29,7 @@ function startScanner() {
 
   if (!scannerCallback) {
     scannerCallback = topList => {
-      try {
-        chrome.runtime.sendMessage({ type: 'trendiq:topOpportunities', topList });
-      } catch (e) {
-        console.warn(e);
-      }
+      safeSendMessage({ type: 'trendiq:topOpportunities', topList });
     };
   }
 
@@ -79,7 +87,7 @@ async function symbolAgentTick(symbol) {
     const decision = (bot && bot.onSignal) ? bot.onSignal(signal) : { action: 'hold' };
     const traderInfluence = (ProTraderModule && ProTraderModule.getInfluence) ? ProTraderModule.getInfluence(symbol) : 0;
 
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       type: 'trendiq:papertradeDecision',
       symbol,
       sig: { composite, price, traderInfluence, ts: Date.now() },
