@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Extension Options</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 12px; }
+      label { display:block; margin: 8px 0 4px; }
+      input[type="text"] { width: 100%; padding: 8px; }
+      button { margin-top: 8px; }
+      .note { color: #666; font-size: 12px; margin-top:8px }
+    </style>
+  </head>
+  <body>
+    <h2>Extension Options</h2>
+    <label for="cgKey">CoinGecko API Key (optional)</label>
+    <input id="cgKey" type="text" placeholder="Enter your x-cg-pro-api-key here" />
+    <div>
+      <button id="saveBtn">Save</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+    <div class="note">If empty, the dashboard will call public CoinGecko endpoints without a key (rate limits may apply).</div>
+    <script src="options.js"></script>
+  </body>
+</html>
