@@ -1,25 +1,66 @@
-import ProTraderModule from './bots/pro_trader_module.js';
-import bot from './bots/pro_trader_bot.js';
+import ProTraderModule from './pro_trader_module.js';
+import bot from './pro_trader_bot.js';
 import GlobalScanner from './global_scanner.js';
 
 console.log('TrendIQ v2.7 background starting');
 
 const agents = {};
+let servicesInitialized = false;
+
+const safeSendMessage = payload => {
+  if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) return;
+  try {
+    chrome.runtime.sendMessage(payload, () => {
+      if (chrome.runtime.lastError) {
+        console.debug('background message skipped', chrome.runtime.lastError.message);
+      }
+    });
+  } catch (err) {
+    console.warn('sendMessage failed', err);
+  }
+};
+
+const handleTopOpportunitiesUpdate = topList => {
+  safeSendMessage({ type: 'trendiq:topOpportunities', topList });
+};
+
+function initializeServices({ force = false, reinitializeModule = false } = {}) {
+  if (force) {
+    servicesInitialized = false;
+    if (GlobalScanner.stop) GlobalScanner.stop();
+  }
+  if (servicesInitialized) return;
+  servicesInitialized = true;
+
+  if (ProTraderModule && typeof ProTraderModule.init === 'function') {
+    if (reinitializeModule || !ProTraderModule.coinActivity) {
+      ProTraderModule.init();
+    }
+  }
+
+  const config = GlobalScanner && typeof GlobalScanner.getConfig === 'function'
+    ? GlobalScanner.getConfig()
+    : { pollIntervalMs: 5000, tickers: [], topN: 20 };
+
+  if (GlobalScanner && typeof GlobalScanner.init === 'function') {
+    const topN = config.topN ?? 20;
+    GlobalScanner.init({
+      pollIntervalMs: config.pollIntervalMs ?? 5000,
+      tickers: config.tickers ?? [],
+      topN,
+      onUpdate: handleTopOpportunitiesUpdate
+    });
+  }
+}
+
+initializeServices();
 
 chrome.runtime.onInstalled.addListener(() => {
-  ProTraderModule.init();
-  GlobalScanner.init({
-    pollIntervalMs: 5000,
-    tickers: GlobalScanner.getConfig().tickers,
-    topN: 20,
-    onUpdate: topList => {
-      try { chrome.runtime.sendMessage({ type: 'trendiq:topOpportunities', topList }); }
-      catch(e){ console.warn(e); }
-    }
-  });
+  initializeServices({ force: true, reinitializeModule: true });
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  initializeServices();
   if (!msg || !msg.type) return;
   if (msg.type === 'trendiq:startSymbol') {
     const symbol = msg.symbol;
@@ -33,6 +74,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === 'trendiq:setScannerConfig') {
     GlobalScanner.setConfig(msg.config || {});
+    initializeServices({ force: true });
     sendResponse({ ok: true, config: GlobalScanner.getConfig() });
   }
 });
@@ -45,7 +87,7 @@ async function symbolAgentTick(symbol) {
     const decision = (bot && bot.onSignal) ? bot.onSignal(signal) : { action: 'hold' };
     const traderInfluence = (ProTraderModule && ProTraderModule.getInfluence) ? ProTraderModule.getInfluence(symbol) : 0;
 
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       type: 'trendiq:papertradeDecision',
       symbol,
       sig: { composite, price, traderInfluence, ts: Date.now() },

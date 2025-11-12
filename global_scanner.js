@@ -1,4 +1,4 @@
-import ProTraderModule from './bots/pro_trader_module.js';
+import ProTraderModule from './pro_trader_module.js';
 
 let CONFIG = {
   tickers: [
@@ -16,13 +16,26 @@ let CONFIG = {
     'TOKEN91','TOKEN92','TOKEN93','TOKEN94','TOKEN95','TOKEN96','TOKEN97','TOKEN98','TOKEN99','TOKEN100'
   ],
   pollIntervalMs: 5000,
-  topN: 10,
+  topN: 20,
   weights: { micro: 1.0, orderbook: 1.3, whale: 1.0, volume: 1.0, trader: 1.2, velocity: 1.0 }
 };
 
 let _timer = null;
 let _callbacks = [];
 let _history = {};
+
+const safeSendMessage = payload => {
+  if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) return;
+  try {
+    chrome.runtime.sendMessage(payload, () => {
+      if (chrome.runtime.lastError) {
+        console.debug('scanner message skipped', chrome.runtime.lastError.message);
+      }
+    });
+  } catch (err) {
+    console.warn('scanner send failed', err);
+  }
+};
 
 function computeMockSignals(symbol) {
   const v = () => Math.random() * 2 - 1;
@@ -58,7 +71,7 @@ function scanOnce() {
     scored.sort((a, b) => b.normalized - a.normalized);
     const top = scored.slice(0, CONFIG.topN);
     _callbacks.forEach(cb => { try { cb(top); } catch (e) {} });
-    try { chrome.runtime.sendMessage({ type: 'trendiq:scannerUpdate', top }); } catch (e) {}
+    safeSendMessage({ type: 'trendiq:scannerUpdate', top });
   } catch (e) {
     console.warn('scanner error', e);
   }
@@ -69,7 +82,7 @@ export default {
     if (pollIntervalMs != null) CONFIG.pollIntervalMs = pollIntervalMs;
     if (tickers) CONFIG.tickers = tickers;
     if (topN != null) CONFIG.topN = topN;
-    if (onUpdate) _callbacks.push(onUpdate);
+    if (onUpdate && !_callbacks.includes(onUpdate)) _callbacks.push(onUpdate);
     if (_timer) clearInterval(_timer);
     _timer = setInterval(scanOnce, CONFIG.pollIntervalMs);
     setTimeout(scanOnce, 100);
