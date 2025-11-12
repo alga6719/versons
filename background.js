@@ -25,7 +25,9 @@ function startScanner() {
     };
   }
 
-  GlobalScanner.init({ ...config, onUpdate: scannerCallback });
+  GlobalScanner.init({ ...config, onUpdate: scannerCallback }).catch(err => {
+    console.warn('GlobalScanner init error', err);
+  });
 }
 
 function ensureInitialized({ force = false } = {}) {
@@ -73,15 +75,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 async function symbolAgentTick(symbol) {
   try {
-    const composite = (Math.random() * 2 - 1) * 100;
-    const price = 1 + Math.random() * 10;
-    const signal = { composite, price, symbol, ts: Date.now() };
+    const score = await GlobalScanner.getLiveSignal(symbol);
+    if (!score) return;
+    const composite = score.normalized;
+    const price = score.price;
+    const resolvedSymbol = score.symbol || symbol;
+    const signal = { composite, price, symbol: resolvedSymbol, ts: Date.now() };
     const decision = (bot && bot.onSignal) ? bot.onSignal(signal) : { action: 'hold' };
-    const traderInfluence = (ProTraderModule && ProTraderModule.getInfluence) ? ProTraderModule.getInfluence(symbol) : 0;
+    const traderInfluence = (score.components && typeof score.components.traderInfluence === 'number')
+      ? score.components.traderInfluence
+      : (ProTraderModule && ProTraderModule.getInfluence ? ProTraderModule.getInfluence(resolvedSymbol) : 0);
 
     chrome.runtime.sendMessage({
       type: 'trendiq:papertradeDecision',
-      symbol,
+      symbol: resolvedSymbol,
       sig: { composite, price, traderInfluence, ts: Date.now() },
       decision
     });

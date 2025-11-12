@@ -10,6 +10,15 @@ let chart = null;
 let chartReady = false;
 let positions = {};
 
+function escapeHtml(str = '') {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function initChart() {
   const ctx = document.getElementById('scoresChart').getContext('2d');
   chart = new Chart(ctx, {
@@ -65,7 +74,12 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
 
     if (msg.type === 'trendiq:scannerUpdate' || msg.type === 'trendiq:topOpportunities') {
       const top = msg.top || msg.topList || [];
-      topListDiv.innerHTML = top.map(t => `<div style="padding:6px;border-bottom:1px solid #f1f1f1"><strong>${t.symbol}</strong> — ${Number(t.normalized).toFixed(1)}% <small style="color:#666">${t.raw.toFixed(2)}</small></div>`).join('');
+      topListDiv.innerHTML = top.map(t => {
+        const reasons = Array.isArray(t?.rationale?.reasons) && t.rationale.reasons.length
+          ? t.rationale.reasons.map(reason => `<div class="mini-reason">${escapeHtml(reason)}</div>`).join('')
+          : (t?.rationale?.summary ? `<div class="mini-reason">${escapeHtml(t.rationale.summary)}</div>` : '');
+        return `<div class="top-item"><strong>${escapeHtml(t.symbol)}</strong> — ${Number(t.normalized).toFixed(1)}% <small>${t.raw.toFixed(2)}</small>${reasons}</div>`;
+      }).join('');
     }
   });
 }
