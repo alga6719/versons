@@ -45,6 +45,31 @@ function clamp(value, min = -1, max = 1) {
   return Math.max(min, Math.min(max, value));
 }
 
+function formatPercent(value) {
+  if (!isFinite(value)) return null;
+  const precision = Math.abs(value) >= 10 ? 0 : 1;
+  return `${value >= 0 ? '+' : ''}${value.toFixed(precision)}%`;
+}
+
+function formatCompactUSD(value) {
+  if (!isFinite(value) || value === 0) return null;
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '-' : '';
+  if (abs >= 1e12) return `${sign}$${(abs / 1e12).toFixed(1)}T`;
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
+function formatHours(hours) {
+  if (!isFinite(hours)) return null;
+  if (hours < 1) return 'last hour';
+  if (hours < 24) return `last ${Math.round(hours)}h`;
+  const days = hours / 24;
+  return `last ${Math.round(days)}d`;
+}
+
 function computeStats(coins) {
   const maxVolume = coins.reduce((m, c) => Math.max(m, c.total_volume || 0), 0);
   const maxMarketCap = coins.reduce((m, c) => Math.max(m, c.market_cap || 0), 0);
@@ -225,6 +250,109 @@ function computeSignals(coin, stats, newsBySymbol) {
   return { micro, orderbook, whale, volume, marketCap, velocity, traderInfluence, news, newsMentions, newsWindowHours };
 }
 
+function describeContribution(key, coin, components) {
+  switch (key) {
+    case 'micro': {
+      const pct = formatPercent(coin.price_change_percentage_1h_in_currency);
+      if (!pct) return null;
+      return `1h momentum ${pct}`;
+    }
+    case 'orderbook': {
+      const pct = formatPercent(coin.price_change_percentage_24h_in_currency);
+      if (!pct) return null;
+      return `24h trend ${pct}`;
+    }
+    case 'whale': {
+      const pct = formatPercent(coin.price_change_percentage_7d_in_currency);
+      if (!pct) return null;
+      return `7d performance ${pct}`;
+    }
+    case 'volume': {
+      if ((components.volume || 0) < 0.15) return null;
+      const vol = formatCompactUSD(coin.total_volume);
+      if (!vol) return null;
+      return `Liquidity spike with ${vol} traded (24h)`;
+    }
+    case 'marketCap': {
+      if ((components.marketCap || 0) < 0.15) return null;
+      const cap = formatCompactUSD(coin.market_cap);
+      if (!cap) return null;
+      return `Market cap leadership (${cap})`;
+    }
+    case 'traderInfluence': {
+      if (!isFinite(components.traderInfluence) || components.traderInfluence <= 0) return null;
+      return `Pro trader flow trending long (score ${(components.traderInfluence * 100).toFixed(0)}%)`;
+    }
+    case 'velocity': {
+      if (!isFinite(components.velocity) || components.velocity <= 0.15) return null;
+      return `Intraday velocity accelerating (${(components.velocity * 100).toFixed(0)}%)`;
+    }
+    case 'news': {
+      if (!isFinite(components.news) || components.news <= 0.1) return null;
+      const mentions = components.newsMentions || 0;
+      const windowLabel = formatHours(components.newsWindowHours);
+      if (mentions > 0) {
+        const windowText = windowLabel ? ` ${windowLabel}` : '';
+        return `Positive news sentiment from ${mentions} stories${windowText ? ` (${windowText})` : ''}`;
+      }
+      return 'Positive news sentiment';
+    }
+    default:
+      return null;
+  }
+}
+
+function deriveRationale(coin, components, weights, normalizedScore) {
+  const contributions = [
+    { key: 'micro', value: (components.micro || 0) * (weights.micro || 0) },
+    { key: 'orderbook', value: (components.orderbook || 0) * (weights.orderbook || 0) },
+    { key: 'whale', value: (components.whale || 0) * (weights.whale || 0) },
+    { key: 'volume', value: (components.volume || 0) * (weights.volume || 0) },
+    { key: 'marketCap', value: (components.marketCap || 0) * (weights.marketCap || 0) },
+    { key: 'traderInfluence', value: (components.traderInfluence || 0) * (weights.trader || 0) },
+    { key: 'velocity', value: (components.velocity || 0) * (weights.velocity || 0) },
+    { key: 'news', value: (components.news || 0) * (weights.news || 0) }
+  ];
+
+  const positive = contributions
+    .filter(entry => entry.value > 0.12)
+    .sort((a, b) => b.value - a.value);
+
+  const reasons = [];
+  const seenKeys = new Set();
+
+  positive.forEach(entry => {
+    const reason = describeContribution(entry.key, coin, components);
+    if (reason && !seenKeys.has(reason)) {
+      reasons.push(reason);
+      seenKeys.add(reason);
+    }
+  });
+
+  if (reasons.length < 2) {
+    contributions
+      .filter(entry => entry.value > 0.05)
+      .sort((a, b) => b.value - a.value)
+      .forEach(entry => {
+        if (reasons.length >= 3) return;
+        const reason = describeContribution(entry.key, coin, components);
+        if (reason && !seenKeys.has(reason)) {
+          reasons.push(reason);
+          seenKeys.add(reason);
+        }
+      });
+  }
+
+  if (!reasons.length) {
+    reasons.push(`Composite score ${normalizedScore.toFixed(1)}% driven by balanced momentum and liquidity signals`);
+  }
+
+  return {
+    summary: reasons.join(' • '),
+    reasons
+  };
+}
+
 function buildScore(coin, components) {
   const w = CONFIG.weights;
   const raw = (components.micro * w.micro)
@@ -240,6 +368,7 @@ function buildScore(coin, components) {
   if (!_history[symbol]) _history[symbol] = [];
   _history[symbol].push({ t: Date.now(), value: normalized });
   if (_history[symbol].length > 50) _history[symbol].shift();
+  const rationale = deriveRationale(coin, components, w, normalized);
   return {
     id: coin.id,
     name: coin.name,
@@ -250,6 +379,7 @@ function buildScore(coin, components) {
     marketCap: coin.market_cap,
     volume: coin.total_volume,
     components,
+    rationale,
     newsMentions: components.newsMentions || 0,
     newsWindowHours: components.newsWindowHours || 0,
     ts: Date.now()
