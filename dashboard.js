@@ -1,3 +1,5 @@
+const MAX_TREND_POINTS = 12;
+
 const fallbackTokens = [
   {
     symbol: "SOL",
@@ -394,9 +396,11 @@ function buildChart(token) {
   }
 
   const ctx = document.getElementById("scoreChart");
-  const labels = token.scoreTrend.map((point) => point.time);
-  const scores = token.scoreTrend.map((point) => point.score);
-  const eventMarkers = labels.map((time) => token.events.find((ev) => ev.time === time) || null);
+  const trendPoints = token.scoreTrend.slice(-MAX_TREND_POINTS);
+  const labels = trendPoints.map((point) => point.time);
+  const scores = trendPoints.map((point) => point.score);
+  const eventByTime = new Map((token.events || []).map((ev) => [ev.time, ev]));
+  const eventMarkers = labels.map((time) => eventByTime.get(time) || null);
   currentEventMeta = eventMarkers;
   const eventData = eventMarkers.map((ev) => (ev ? ev.score : null));
 
@@ -432,6 +436,14 @@ function buildChart(token) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: {
+          duration: 350,
+          easing: "easeOutCubic"
+        },
+        interaction: {
+          mode: "index",
+          intersect: false
+        },
         scales: {
           x: {
             grid: {
@@ -472,7 +484,7 @@ function buildChart(token) {
     scoreChart.data.labels = labels;
     scoreChart.data.datasets[0].data = scores;
     scoreChart.data.datasets[1].data = eventData;
-    scoreChart.update();
+    scoreChart.update("none");
   }
 }
 

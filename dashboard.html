@@ -197,6 +197,19 @@
     .chart-card {
       position: relative;
       padding-bottom: 2.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: clamp(180px, 26vh, 240px);
+    }
+
+    .chart-wrapper canvas {
+      width: 100% !important;
+      height: 100% !important;
     }
 
     .chart-legend {
@@ -389,7 +402,9 @@
     <section class="detail-grid">
       <div class="card chart-card">
         <h2 id="activeTokenTitle">SOL / USDC • Short bias</h2>
-        <canvas id="scoreChart" height="220"></canvas>
+        <div class="chart-wrapper">
+          <canvas id="scoreChart" height="220"></canvas>
+        </div>
         <div class="chart-legend">
           <span class="score">Recommendation score</span>
           <span class="event">Key driver markers</span>
