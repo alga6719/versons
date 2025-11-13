@@ -316,38 +316,42 @@ async function loadTokenManifest() {
     return null;
   };
 
-  if (window?.location?.protocol === "file:") {
+  const protocol = window?.location?.protocol ?? "";
+  const origin = window?.location?.origin ?? "";
+  const isFileLikeContext = protocol === "file:" || origin === "null";
+  const hasChromeRuntime = typeof chrome !== "undefined" && chrome?.runtime?.getURL;
+  const shouldAttemptNetworkFetch = !isFileLikeContext && (hasChromeRuntime || /^https?:$/.test(protocol));
+
+  if (isFileLikeContext) {
     const preloaded = await loadFromPreloaded(
-      "Loaded token-manifest.json via module import for filesystem usage."
+      "Loaded token-manifest.json via inline preload for filesystem usage."
     );
     if (preloaded) {
       return preloaded;
     }
 
     console.info(
-      "Running from the filesystem without module support; using embedded dataset."
+      "Running from a file:// origin without a preloaded manifest; using embedded dataset."
     );
     return cloneTokens(fallbackTokens);
   }
 
   try {
-    const manifestUrl = (() => {
-      if (typeof chrome !== "undefined" && chrome?.runtime?.getURL) {
-        return chrome.runtime.getURL("token-manifest.json");
+    if (shouldAttemptNetworkFetch) {
+      const manifestUrl = hasChromeRuntime
+        ? chrome.runtime.getURL("token-manifest.json")
+        : "token-manifest.json";
+
+      const response = await fetch(manifestUrl, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`Unexpected status ${response.status}`);
       }
-
-      return "token-manifest.json";
-    })();
-
-    const response = await fetch(manifestUrl, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Unexpected status ${response.status}`);
+      const manifest = await response.json();
+      if (Array.isArray(manifest.tokens) && manifest.tokens.length) {
+        return cloneTokens(manifest.tokens);
+      }
+      console.warn("Token manifest missing a populated tokens array. Falling back to embedded data.");
     }
-    const manifest = await response.json();
-    if (Array.isArray(manifest.tokens) && manifest.tokens.length) {
-      return cloneTokens(manifest.tokens);
-    }
-    console.warn("Token manifest missing a populated tokens array. Falling back to embedded data.");
   } catch (error) {
     console.warn("Unable to load token manifest via fetch.", error);
     const preloaded = await loadFromPreloaded(

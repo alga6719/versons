@@ -1,6 +1,10 @@
-const manifestImportPromise = import("./token-manifest.json", {
-  assert: { type: "json" }
-}).then((module) => module.default ?? module);
+const existingManifest = window.__TOKEN_MANIFEST__;
+
+const manifestImportPromise = existingManifest
+  ? Promise.resolve(existingManifest)
+  : import("./token-manifest.json", {
+      assert: { type: "json" }
+    }).then((module) => module.default ?? module);
 
 window.__TOKEN_MANIFEST_PROMISE__ = manifestImportPromise
   .then((manifest) => {

@@ -32,4 +32,12 @@ If you prefer to review the dashboard inside a Chrome extension sandbox:
 
 ## Asset manifest
 
-The committed [`manifest.json`](manifest.json) file enumerates the local assets (`dashboard.html`, `dashboard.js`, `token-manifest.json`, `tf.min.js`, and `adaptive_weights.js`) through the `web_accessible_resources` list so QA reviewers can verify that everything needed for manual testing is present. When the dashboard is loaded as a Chrome extension, `token-manifest.json` is resolved through `chrome.runtime.getURL`, ensuring the curated dataset is available without CORS issues. For reviewers who prefer to open the mock straight from the filesystem, a lightweight [`manifest-loader.js`](manifest-loader.js) module preloads the JSON manifest via the browser's native module loader so the curated dataset is still used under the `file:` protocol. If JSON modules are not supported, the dashboard will gracefully fall back to the embedded sample dataset without logging blocked fetch errors.
+The committed [`manifest.json`](manifest.json) file enumerates the local assets (`dashboard.html`, `dashboard.js`, `token-manifest.json`, `tf.min.js`, and `adaptive_weights.js`) through the `web_accessible_resources` list so QA reviewers can verify that everything needed for manual testing is present. When the dashboard is loaded as a Chrome extension, `token-manifest.json` is resolved through `chrome.runtime.getURL`, ensuring the curated dataset is available without CORS issues.
+
+For reviewers who prefer to open the mock straight from the filesystem, the dashboard now ships with an inline mirror of the JSON manifest at [`token-manifest-inline.js`](token-manifest-inline.js). That file seeds `window.__TOKEN_MANIFEST__` before the loader script executes so `dashboard.js` can consume the curated data without triggering a blocked `fetch` from a `file://` origin. The inline file is generated automatically from [`token-manifest.json`](token-manifest.json); run the snippet below whenever you update the manifest to keep both sources in sync:
+
+```bash
+node scripts/generate-inline-manifest.js
+```
+
+The helper script rebuilds `token-manifest-inline.js` and ensures filesystem sessions and extension sessions see identical data. If neither source can be resolved, the dashboard will gracefully fall back to the embedded sample dataset without logging blocked fetch errors.
