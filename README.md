@@ -22,6 +22,14 @@ This repository contains a static prototype for the TrendIQ token intelligence d
 
    Then browse to [http://localhost:8080/dashboard.html](http://localhost:8080/dashboard.html).
 
+### Loading as a Chrome extension
+
+If you prefer to review the dashboard inside a Chrome extension sandbox:
+
+1. Open `chrome://extensions` in Google Chrome and enable **Developer mode**.
+2. Choose **Load unpacked** and select the repository root.
+3. Launch the extension from the toolbar or the extensions list to open `dashboard.html`.
+
 ## Asset manifest
 
-The committed [`manifest.json`](manifest.json) file enumerates the local assets (`dashboard.html`, `dashboard.js`, and `token-manifest.json`) so QA reviewers can verify that everything needed for manual testing is present. The dashboard attempts to load token data from [`token-manifest.json`](token-manifest.json) and gracefully falls back to the embedded dataset if the manifest is unavailable.
+The committed [`manifest.json`](manifest.json) file enumerates the local assets (`dashboard.html`, `dashboard.js`, `token-manifest.json`, `tf.min.js`, and `adaptive_weights.js`) through the `web_accessible_resources` list so QA reviewers can verify that everything needed for manual testing is present. The dashboard attempts to load token data from [`token-manifest.json`](token-manifest.json) and gracefully falls back to the embedded dataset if the manifest is unavailable.
