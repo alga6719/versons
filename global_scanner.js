@@ -9,7 +9,7 @@ let CONFIG = {
   topN: 10,
   vsCurrency: 'usd',
   order: 'volume_desc',
-  apiKey: 'CG-4mhu23ZJbY2MH2xuXwDF2FPa',
+  apiKey: null,
   weights: {
     micro: 1.35, // short-term momentum (1h)
     orderbook: 1.1, // 24h change
@@ -34,10 +34,11 @@ let _newsCache = new Map();
 let _newsFetchedAt = 0;
 
 function headers() {
-  return {
-    'Accept': 'application/json',
-    'x-cg-pro-api-key': CONFIG.apiKey
-  };
+  const base = { 'Accept': 'application/json' };
+  if (CONFIG.apiKey) {
+    base['x-cg-pro-api-key'] = CONFIG.apiKey;
+  }
+  return base;
 }
 
 function clamp(value, min = -1, max = 1) {
