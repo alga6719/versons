@@ -17,12 +17,112 @@ let CONFIG = {
   ],
   pollIntervalMs: 5000,
   topN: 10,
-  weights: { micro: 1.0, orderbook: 1.3, whale: 1.0, volume: 1.0, trader: 1.2, velocity: 1.0 }
+  weights: { micro: 1.0, orderbook: 1.3, whale: 1.0, volume: 1.0, trader: 1.2, velocity: 1.0 },
+  apiKeys: { coingecko: null }
 };
 
 let _timer = null;
 let _callbacks = new Set();
 let _history = {};
+let _newsCache = { ts: 0, items: [] };
+let _marketCache = { ts: 0, items: [] };
+
+const NEWS_TTL_MS = 10 * 60 * 1000;
+const MARKET_TTL_MS = 60 * 1000;
+
+const FALLBACK_NEWS = [
+  {
+    id: 'fallback-1',
+    title: 'Market digest unavailable',
+    url: 'https://www.coingecko.com',
+    body: 'Real-time CoinGecko news could not be loaded because no API key was configured.'
+  },
+  {
+    id: 'fallback-2',
+    title: 'Using demo market metrics',
+    url: 'https://www.coingecko.com',
+    body: 'TrendIQ is operating with mock market data until a CoinGecko API key is supplied in the scanner configuration.'
+  }
+];
+
+const FALLBACK_MARKETS = [
+  { symbol: 'SOLUSDT', price: 0, change24h: 0 },
+  { symbol: 'BONKUSDT', price: 0, change24h: 0 },
+  { symbol: 'HNTUSDT', price: 0, change24h: 0 }
+];
+
+async function ensureNewsCache() {
+  const age = Date.now() - _newsCache.ts;
+  if (age < NEWS_TTL_MS && _newsCache.items.length) return _newsCache.items;
+
+  const key = CONFIG?.apiKeys?.coingecko;
+  if (!key) {
+    if (!_newsCache.items.length) _newsCache.items = [...FALLBACK_NEWS];
+    _newsCache.ts = Date.now();
+    console.info('Skipping CoinGecko news fetch: API key missing');
+    return _newsCache.items;
+  }
+
+  try {
+    const res = await fetch(`https://pro-api.coingecko.com/api/v3/news?token=${encodeURIComponent(key)}`);
+    if (!res.ok) {
+      throw new Error(`CoinGecko news request failed: ${res.status}`);
+    }
+    const json = await res.json();
+    const items = Array.isArray(json?.data) ? json.data : [];
+    _newsCache = { ts: Date.now(), items: items.length ? items : [...FALLBACK_NEWS] };
+  } catch (err) {
+    console.warn('news fetch failed', err);
+    if (!_newsCache.items.length) _newsCache.items = [...FALLBACK_NEWS];
+    _newsCache.ts = Date.now();
+  }
+
+  return _newsCache.items;
+}
+
+async function ensureMarketCache() {
+  const age = Date.now() - _marketCache.ts;
+  if (age < MARKET_TTL_MS && _marketCache.items.length) return _marketCache.items;
+
+  const key = CONFIG?.apiKeys?.coingecko;
+  if (!key) {
+    if (!_marketCache.items.length) _marketCache.items = [...FALLBACK_MARKETS];
+    _marketCache.ts = Date.now();
+    console.info('Skipping CoinGecko markets fetch: API key missing');
+    return _marketCache.items;
+  }
+
+  const symbols = CONFIG.tickers.slice(0, 50).map(s => s.replace(/USDT$/, '').toLowerCase());
+  try {
+    const res = await fetch(`https://pro-api.coingecko.com/api/v3/simple/price?ids=${symbols.join(',')}&vs_currencies=usd&include_24hr_change=true`, {
+      headers: { 'x-cg-pro-api-key': key }
+    });
+    if (!res.ok) {
+      throw new Error(`CoinGecko markets request failed: ${res.status}`);
+    }
+    const json = await res.json();
+    const items = symbols.map((symbol, idx) => {
+      const data = json[symbol] || {};
+      return {
+        symbol: CONFIG.tickers[idx] || symbol.toUpperCase(),
+        price: data.usd ?? 0,
+        change24h: data.usd_24h_change ?? 0
+      };
+    });
+    _marketCache = { ts: Date.now(), items };
+  } catch (err) {
+    console.warn('markets fetch failed', err);
+    if (!_marketCache.items.length) _marketCache.items = [...FALLBACK_MARKETS];
+    _marketCache.ts = Date.now();
+  }
+
+  return _marketCache.items;
+}
+
+function refreshExternalCaches() {
+  ensureNewsCache().catch(err => console.warn('news refresh error', err));
+  ensureMarketCache().catch(err => console.warn('market refresh error', err));
+}
 
 function computeMockSignals(symbol) {
   const v = () => Math.random() * 2 - 1;
@@ -44,6 +144,7 @@ function scoreSymbol(symbol) {
 
 function scanOnce() {
   try {
+    refreshExternalCaches();
     const scored = CONFIG.tickers.map(t => scoreSymbol(t));
     scored.forEach(s => {
       const h = _history[s.symbol] || [];
@@ -78,8 +179,12 @@ export default {
     if (cfg.pollIntervalMs != null) CONFIG.pollIntervalMs = cfg.pollIntervalMs;
     if (cfg.tickers) CONFIG.tickers = cfg.tickers;
     if (cfg.topN != null) CONFIG.topN = cfg.topN;
+    if (cfg.coingeckoApiKey) CONFIG.apiKeys.coingecko = cfg.coingeckoApiKey;
   },
-  getConfig() { return { ...CONFIG }; },
+  getConfig() {
+    const { apiKeys, ...rest } = CONFIG;
+    return { ...rest, hasCoinGeckoKey: Boolean(apiKeys?.coingecko) };
+  },
   stop() {
     if (_timer) clearInterval(_timer);
     _timer = null;
