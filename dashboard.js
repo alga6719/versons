@@ -273,15 +273,64 @@ const eventTimeline = document.getElementById("eventTimeline");
 const whaleTable = document.getElementById("whaleTable");
 const newsFeed = document.getElementById("newsFeed");
 
-async function loadTokenManifest() {
+function cloneTokens(tokens) {
   try {
-    if (window?.location?.protocol === "file:") {
-      console.info(
-        "Running from the filesystem; browser sandboxing blocks fetching token-manifest.json. Using embedded dataset."
-      );
-      return [...fallbackTokens];
+    return JSON.parse(JSON.stringify(tokens));
+  } catch (error) {
+    console.warn("Unable to clone manifest tokens; returning shallow copy.", error);
+    return Array.isArray(tokens) ? [...tokens] : [];
+  }
+}
+
+async function readPreloadedManifestTokens() {
+  try {
+    if (
+      window.__TOKEN_MANIFEST_PROMISE__ &&
+      typeof window.__TOKEN_MANIFEST_PROMISE__.then === "function"
+    ) {
+      const manifest = await window.__TOKEN_MANIFEST_PROMISE__;
+      if (manifest?.tokens?.length) {
+        return manifest.tokens;
+      }
+    }
+  } catch (error) {
+    console.warn("Unable to resolve tokens from preloaded manifest promise.", error);
+  }
+
+  if (window.__TOKEN_MANIFEST__?.tokens?.length) {
+    return window.__TOKEN_MANIFEST__.tokens;
+  }
+
+  return null;
+}
+
+async function loadTokenManifest() {
+  const loadFromPreloaded = async (reason) => {
+    const tokens = await readPreloadedManifestTokens();
+    if (tokens?.length) {
+      if (reason) {
+        console.info(reason);
+      }
+      return cloneTokens(tokens);
+    }
+    return null;
+  };
+
+  if (window?.location?.protocol === "file:") {
+    const preloaded = await loadFromPreloaded(
+      "Loaded token-manifest.json via module import for filesystem usage."
+    );
+    if (preloaded) {
+      return preloaded;
     }
 
+    console.info(
+      "Running from the filesystem without module support; using embedded dataset."
+    );
+    return cloneTokens(fallbackTokens);
+  }
+
+  try {
     const manifestUrl = (() => {
       if (typeof chrome !== "undefined" && chrome?.runtime?.getURL) {
         return chrome.runtime.getURL("token-manifest.json");
@@ -296,13 +345,21 @@ async function loadTokenManifest() {
     }
     const manifest = await response.json();
     if (Array.isArray(manifest.tokens) && manifest.tokens.length) {
-      return manifest.tokens;
+      return cloneTokens(manifest.tokens);
     }
     console.warn("Token manifest missing a populated tokens array. Falling back to embedded data.");
   } catch (error) {
-    console.warn("Unable to load token manifest; using embedded dataset instead.", error);
+    console.warn("Unable to load token manifest via fetch.", error);
+    const preloaded = await loadFromPreloaded(
+      "Using preloaded token manifest after fetch failure."
+    );
+    if (preloaded) {
+      return preloaded;
+    }
   }
-  return [...fallbackTokens];
+
+  console.warn("Unable to load token manifest; using embedded dataset instead.");
+  return cloneTokens(fallbackTokens);
 }
 
 function renderTokenList(list) {
