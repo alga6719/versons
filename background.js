@@ -1,5 +1,5 @@
-import ProTraderModule from './pro_trader_module.js';
-import bot from './pro_trader_bot.js';
+import ProTraderModule from './bots/pro_trader_module.js';
+import bot from './bots/pro_trader_bot.js';
 import GlobalScanner from './global_scanner.js';
 
 console.log('TrendIQ v2.7 background starting');
@@ -35,6 +35,18 @@ function ensureInitialized({ force = false } = {}) {
   initialized = true;
 }
 
+function ensureInitializedAsync(options = {}) {
+  return Promise.resolve().then(() => {
+    try {
+      ensureInitialized(options);
+    } catch (err) {
+      initialized = false;
+      console.error('TrendIQ init failed', err);
+      throw err;
+    }
+  });
+}
+
 ensureInitialized();
 
 if (chrome.runtime.onStartup) {
@@ -42,6 +54,15 @@ if (chrome.runtime.onStartup) {
 }
 
 chrome.runtime.onInstalled.addListener(() => ensureInitialized({ force: true }));
+
+if (typeof self !== 'undefined' && self.addEventListener) {
+  self.addEventListener('activate', event => {
+    event.waitUntil(ensureInitializedAsync({ force: true }));
+  });
+  self.addEventListener('install', event => {
+    event.waitUntil(ensureInitializedAsync({ force: true }));
+  });
+}
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.type) return;
