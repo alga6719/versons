@@ -26,6 +26,7 @@
     .header-controls {
       display: flex;
       gap: 0.75rem;
+      align-items: center;
     }
     select, button {
       padding: 0.5rem 1rem;
@@ -46,12 +47,83 @@
       border-radius: 10px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.05);
     }
+    .chart-wrapper {
+      position: relative;
+      height: 120px;
+    }
+    #scoreChart {
+      width: 100% !important;
+      height: 100% !important;
+    }
     .recommendation, .open-positions, .rug-table {
       margin-top: 1.5rem;
+    }
+    .recommendation-pill {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: #eef8f2;
+      color: #0a934d;
+      border-radius: 8px;
+      padding: 1rem;
+      font-size: 1.1rem;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+    .recommendation-pill.sell {
+      background: #fbecee;
+      color: #d23c3c;
+    }
+    .recommendation-pill.hold {
+      background: #fcf4e3;
+      color: #b98500;
+    }
+    .recommendation-pill .label {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+    .recommendation-pill .subtext {
+      font-size: 0.85rem;
+      opacity: 0.8;
     }
     .buy { color: #0a934d; font-weight: bold; }
     .sell { color: #d23c3c; font-weight: bold; }
     .hold { color: #e6a300; font-weight: bold; }
+    .token-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .token-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.95rem;
+    }
+    .token-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .token-meta small {
+      color: #666;
+      font-size: 0.75rem;
+    }
+    .token-score {
+      font-weight: 700;
+      min-width: 3.5rem;
+      text-align: right;
+    }
+    .empty li {
+      justify-content: center;
+      color: #666;
+      font-style: italic;
+    }
     footer {
       text-align: center;
       font-size: 0.85rem;
@@ -64,30 +136,35 @@
   <header>
     <h1>TrendIQ v4.2 ML</h1>
     <div class="header-controls">
-      <select><option>SOLUSDT</option></select>
-      <button style="background:#34c759; color:white;">Start</button>
-      <button style="background:white; border:1px solid #34c759; color:#34c759;">Opportunities</button>
+      <select id="marketSelector">
+        <option value="solana">Solana Ecosystem</option>
+      </select>
+      <div id="feedStatus" style="align-self:center; font-weight:600; color:#34c759;">Initializing…</div>
+      <button data-action="show-opportunities" style="background:white; border:1px solid #34c759; color:#34c759;">Opportunities</button>
     </div>
   </header>
 
   <main>
     <div>
-      <div class="card">
+      <div class="card chart-card">
         <h2>Scores (Live)</h2>
-        <canvas id="scoreChart" height="150"></canvas>
+        <div class="chart-wrapper">
+          <canvas id="scoreChart"></canvas>
+        </div>
       </div>
 
-      <div class="card recommendation">
-        <h3>Latest Recommendation</h3>
-        <div style="font-size:2rem; background:#0a934d; color:white; padding:1rem; border-radius:8px; text-align:center;">BUY<br/><span style="font-size:0.9rem;">now</span></div>
-      </div>
+        <div class="card recommendation">
+          <h3>Latest Recommendation</h3>
+          <div id="latestRecommendation" class="recommendation-pill">
+            <span class="label">Waiting for live data…</span>
+            <small class="subtext">Live feed initializing…</small>
+          </div>
+        </div>
 
       <div class="card open-positions">
         <h3>Open Positions</h3>
-        <ul>
-          <li><span class="buy">SOL</span> — BUY now</li>
-          <li><span class="sell">APT</span> — SELL now</li>
-          <li><span class="hold">RAY</span> — HOLD in 3 min</li>
+        <ul id="openPositionsList" class="token-list empty">
+          <li>Waiting for live signals…</li>
         </ul>
       </div>
     </div>
@@ -95,11 +172,8 @@
     <div>
       <div class="card">
         <h3>Top Opportunities</h3>
-        <ul>
-          <li><strong>SRMUSDT</strong> — <span class="buy">68</span></li>
-          <li><strong>FTTUSDT</strong> — <span class="hold">78</span></li>
-          <li><strong>GALAUSDT</strong> — <span class="hold">72</span></li>
-          <li><strong>RAYUSDT</strong> — <span class="sell">68</span></li>
+        <ul id="opportunitiesList" class="token-list empty">
+          <li>Live scoring will appear here.</li>
         </ul>
       </div>
 
@@ -109,11 +183,8 @@
           <thead>
             <tr><th>Token</th><th>Price</th><th>Signal</th><th>Notes</th><th>Time</th></tr>
           </thead>
-          <tbody>
-            <tr><td>TOKENX</td><td>$0.125</td><td class="buy">BUY</td><td>Dip to $0.12</td><td>10 min</td></tr>
-            <tr><td>TOKENY</td><td>$0.205</td><td class="hold">HOLD</td><td>Buy in 15m</td><td>15 min</td></tr>
-            <tr><td>TOKENZ</td><td>$0.080</td><td class="sell">SELL</td><td>Sell if < $0.078</td><td>5 min</td></tr>
-            <tr><td>TOKENA</td><td>$0.310</td><td class="buy">BUY</td><td>Low liquidity</td><td>N/A</td></tr>
+          <tbody id="scannerTableBody">
+            <tr><td colspan="5" style="text-align:center; color:#666;">Awaiting live feed…</td></tr>
           </tbody>
         </table>
       </div>
@@ -131,19 +202,5 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="dashboard.js"></script>
-  <!--
-    const ctx = document.getElementById('scoreChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: ["10:00", "10:20", "10:40", "11:00"],
-        datasets: [
-          { label: 'Score', data: [10, 30, 50, 40], borderColor: '#007aff', fill: false },
-          { label: 'Trend', data: [-20, -30, 10, 45], borderColor: '#34c759', borderDash: [5,5], fill: false }
-        ]
-      },
-      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-    });
-  -->
 </body>
 </html>
