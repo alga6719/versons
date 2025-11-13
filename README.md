@@ -22,6 +22,9 @@ This repository contains a static prototype for the TrendIQ token intelligence d
 
    Then browse to [http://localhost:8080/dashboard.html](http://localhost:8080/dashboard.html).
 
+All fonts, icons, and scripts referenced by `dashboard.html` are bundled with the repository so reviewers never have to relax a
+ Content Security Policy or allowlist external CDNs to exercise the mock.
+
 ### Loading as a Chrome extension
 
 If you prefer to review the dashboard inside a Chrome extension sandbox:

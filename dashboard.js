@@ -256,8 +256,6 @@ const fallbackTokens = [
 
 let tokens = [...fallbackTokens];
 let activeToken = tokens[0] || null;
-let currentEventMeta = [];
-let scoreChart;
 
 const tokenListEl = document.getElementById("tokenList");
 const watchlistCountEl = document.getElementById("watchlistCount");
@@ -272,6 +270,7 @@ const rationaleList = document.getElementById("rationaleList");
 const eventTimeline = document.getElementById("eventTimeline");
 const whaleTable = document.getElementById("whaleTable");
 const newsFeed = document.getElementById("newsFeed");
+const scoreChartEl = document.getElementById("scoreChart");
 
 function cloneTokens(tokens) {
   try {
@@ -280,6 +279,15 @@ function cloneTokens(tokens) {
     console.warn("Unable to clone manifest tokens; returning shallow copy.", error);
     return Array.isArray(tokens) ? [...tokens] : [];
   }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 async function readPreloadedManifestTokens() {
@@ -462,106 +470,141 @@ function updateNewsFeed(token) {
 }
 
 function buildChart(token) {
-  if (!token || !Array.isArray(token.scoreTrend)) {
-    if (scoreChart) {
-      scoreChart.destroy();
-      scoreChart = null;
-    }
-    currentEventMeta = [];
+  if (!scoreChartEl) {
     return;
   }
 
-  const ctx = document.getElementById("scoreChart");
-  const trendPoints = token.scoreTrend.slice(-MAX_TREND_POINTS);
-  const labels = trendPoints.map((point) => point.time);
-  const scores = trendPoints.map((point) => point.score);
-  const eventByTime = new Map((token.events || []).map((ev) => [ev.time, ev]));
-  const eventMarkers = labels.map((time) => eventByTime.get(time) || null);
-  currentEventMeta = eventMarkers;
-  const eventData = eventMarkers.map((ev) => (ev ? ev.score : null));
+  scoreChartEl.innerHTML = "";
 
-  if (!scoreChart) {
-    scoreChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Recommendation score",
-            data: scores,
-            borderColor: "#4f46e5",
-            backgroundColor: "rgba(79, 70, 229, 0.12)",
-            borderWidth: 3,
-            tension: 0.4,
-            fill: true,
-            pointRadius: 4,
-            pointHoverRadius: 6
-          },
-          {
-            label: "Key driver markers",
-            data: eventData,
-            borderColor: "transparent",
-            backgroundColor: "#facc15",
-            pointBorderColor: "#f59e0b",
-            pointRadius: 6,
-            pointHoverRadius: 8,
-            showLine: false
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: {
-          duration: 350,
-          easing: "easeOutCubic"
-        },
-        interaction: {
-          mode: "index",
-          intersect: false
-        },
-        scales: {
-          x: {
-            grid: {
-              display: false
-            }
-          },
-          y: {
-            suggestedMin: 40,
-            suggestedMax: 100,
-            ticks: {
-              callback: (value) => `${value}`
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            display: false
-          },
-          tooltip: {
-            callbacks: {
-              title: (context) => context[0]?.label || "",
-              label: (context) => {
-                if (context.datasetIndex === 1) {
-                  const meta = currentEventMeta[context.dataIndex];
-                  if (meta) {
-                    return `${meta.label}: ${meta.description}`;
-                  }
-                  return "";
-                }
-                return `Score: ${context.formattedValue}`;
-              }
-            }
-          }
-        }
-      }
-    });
-  } else {
-    scoreChart.data.labels = labels;
-    scoreChart.data.datasets[0].data = scores;
-    scoreChart.data.datasets[1].data = eventData;
-    scoreChart.update("none");
+  if (!token || !Array.isArray(token.scoreTrend) || !token.scoreTrend.length) {
+    return;
   }
+
+  const trendPoints = token.scoreTrend.slice(-MAX_TREND_POINTS);
+  const width = 640;
+  const height = 240;
+  const margin = { top: 24, right: 24, bottom: 36, left: 56 };
+  const usableWidth = width - margin.left - margin.right;
+  const usableHeight = height - margin.top - margin.bottom;
+
+  const scores = trendPoints.map((point) => point.score);
+  const minScore = Math.min(...scores);
+  const maxScore = Math.max(...scores);
+  const paddedMin = Math.min(40, minScore - 5);
+  const paddedMax = Math.max(100, maxScore + 5);
+  const scoreRange = paddedMax - paddedMin || 1;
+
+  const xForIndex = (index) => {
+    if (trendPoints.length === 1) {
+      return margin.left + usableWidth / 2;
+    }
+    return margin.left + (usableWidth * index) / (trendPoints.length - 1);
+  };
+
+  const yForScore = (score) => {
+    const clampedScore = Math.min(Math.max(score, paddedMin), paddedMax);
+    return margin.top + (1 - (clampedScore - paddedMin) / scoreRange) * usableHeight;
+  };
+
+  const lineSegments = trendPoints
+    .map((point, index) => {
+      const prefix = index === 0 ? "M" : "L";
+      return `${prefix}${xForIndex(index).toFixed(2)} ${yForScore(point.score).toFixed(2)}`;
+    })
+    .join(" ");
+
+  const baselineY = yForScore(paddedMin).toFixed(2);
+  const lastX = xForIndex(trendPoints.length - 1).toFixed(2);
+  const firstX = xForIndex(0).toFixed(2);
+  const areaPath = `${lineSegments} L${lastX} ${baselineY} L${firstX} ${baselineY} Z`;
+
+  const yTicks = [];
+  const tickCount = 4;
+  for (let i = 0; i <= tickCount; i += 1) {
+    const value = paddedMin + (scoreRange * i) / tickCount;
+    yTicks.push({ value: Math.round(value), y: yForScore(value) });
+  }
+
+  const xLabels = trendPoints.map((point, index) => ({
+    label: point.time,
+    x: xForIndex(index),
+  }));
+
+  const scorePoints = trendPoints
+    .map(
+      (point, index) =>
+        `<circle class="chart-point" cx="${xForIndex(index).toFixed(2)}" cy="${yForScore(point.score).toFixed(2)}" r="3.5"><title>${escapeHtml(
+          `${point.time} • Score ${point.score}`
+        )}</title></circle>`
+    )
+    .join("");
+
+  const eventByTime = new Map((token.events || []).map((event) => [event.time, event]));
+  const eventMarkers = trendPoints
+    .map((point, index) => {
+      const event = eventByTime.get(point.time);
+      if (!event) {
+        return "";
+      }
+      const x = xForIndex(index).toFixed(2);
+      const y = yForScore(event.score ?? point.score).toFixed(2);
+      const detailsParts = [event.label, event.description].filter(Boolean).map(escapeHtml);
+      const details = detailsParts.length
+        ? detailsParts.join(" — ")
+        : escapeHtml(`${point.time} • Score ${event.score ?? point.score}`);
+      return `
+        <g class="chart-event" transform="translate(${x}, ${y})">
+          <circle r="6"></circle>
+          <circle class="inner" r="2.4"></circle>
+          <title>${details}</title>
+        </g>
+      `;
+    })
+    .join("");
+
+  const gridLines = yTicks
+    .map(
+      (tick) =>
+        `<line class="chart-grid-line" x1="${margin.left}" x2="${width - margin.right}" y1="${tick.y.toFixed(
+          2
+        )}" y2="${tick.y.toFixed(2)}"></line>`
+    )
+    .join("");
+
+  const yLabels = yTicks
+    .map(
+      (tick) =>
+        `<text class="chart-axis-label" x="${margin.left - 12}" y="${tick.y.toFixed(2)}" text-anchor="end" dominant-baseline="middle">${tick.value}</text>`
+    )
+    .join("");
+
+  const xAxisLabels = xLabels
+    .map(
+      (tick) =>
+        `<text class="chart-axis-label chart-axis-label--x" x="${tick.x.toFixed(2)}" y="${height - margin.bottom + 20}" text-anchor="middle">${escapeHtml(
+          tick.label
+        )}</text>`
+    )
+    .join("");
+
+  scoreChartEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  scoreChartEl.innerHTML = `
+    <defs>
+      <linearGradient id="scoreGradient" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="rgba(79, 70, 229, 0.24)" />
+        <stop offset="100%" stop-color="rgba(79, 70, 229, 0)" />
+      </linearGradient>
+    </defs>
+    <g class="chart-grid">${gridLines}</g>
+    <path class="chart-area" d="${areaPath}"></path>
+    <path class="chart-line" d="${lineSegments}"></path>
+    <line class="chart-axis-line" x1="${margin.left}" x2="${width - margin.right}" y1="${baselineY}" y2="${baselineY}"></line>
+    <g class="chart-points">${scorePoints}</g>
+    <g class="chart-events">${eventMarkers}</g>
+    <g class="chart-axis-y">${yLabels}</g>
+    <g class="chart-axis-x">${xAxisLabels}</g>
+  `;
 }
 
 function setActiveToken(token) {
@@ -578,10 +621,8 @@ function setActiveToken(token) {
     eventTimeline.innerHTML = "";
     whaleTable.innerHTML = "";
     newsFeed.innerHTML = "";
-    currentEventMeta = [];
-    if (scoreChart) {
-      scoreChart.destroy();
-      scoreChart = null;
+    if (scoreChartEl) {
+      scoreChartEl.innerHTML = "";
     }
     return;
   }
