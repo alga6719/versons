@@ -1,6 +1,7 @@
 import ProTraderModule from './pro_trader_module.js';
 
 const COINGECKO_BASE = 'https://pro-api.coingecko.com/api/v3';
+const DEFAULT_COINGECKO_API_KEY = 'CG-4mhu23ZJbY2MH2xuXwDF2FPa';
 const NEWS_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 let CONFIG = {
@@ -9,7 +10,7 @@ let CONFIG = {
   topN: 10,
   vsCurrency: 'usd',
   order: 'volume_desc',
-  apiKey: null,
+  apiKey: DEFAULT_COINGECKO_API_KEY,
   weights: {
     micro: 1.35, // short-term momentum (1h)
     orderbook: 1.1, // 24h change
