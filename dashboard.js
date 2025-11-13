@@ -11,28 +11,15 @@ let chartReady = false;
 let positions = {};
 
 function initChart() {
-  const ctx = document.getElementById('scoresChart').getContext('2d');
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: { labels: [], datasets: [
-      { label: 'Composite', data: [], borderColor: 'rgb(30,99,255)', tension: 0.2, pointRadius: 0 },
-      { label: 'Trader Influence (scaled)', data: [], borderColor: 'rgb(34,197,94)', tension: 0.2, pointRadius: 0 }
-    ] },
-    options: { animation: false, responsive: true, scales: { y: { min: -100, max: 100 } } }
-  });
+  if (chartReady) return;
+  const canvas = document.getElementById('scoresChart');
+  chart = new MiniTrendChart(canvas, { maxPoints: 80, min: -100, max: 100 });
   chartReady = true;
 }
 
 function addChartPoint(timeLabel, composite, influenceScaled) {
   if (!chartReady) initChart();
-  chart.data.labels.push(timeLabel);
-  chart.data.datasets[0].data.push(composite);
-  chart.data.datasets[1].data.push(influenceScaled);
-  if (chart.data.labels.length > 80) {
-    chart.data.labels.shift();
-    chart.data.datasets.forEach(ds => ds.data.shift());
-  }
-  chart.update();
+  chart.addPoint(timeLabel, composite, influenceScaled);
 }
 
 function setRecommendationText(obj) {
