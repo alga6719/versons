@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "TrendIQ Dashboard Mock",
+  "version": "1.0.0",
+  "description": "Static mock dashboard for the TrendIQ token intelligence console.",
+  "action": {
+    "default_title": "TrendIQ Dashboard Mock"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dashboard.html",
+        "dashboard.js",
+        "token-manifest.json",
+        "token-manifest-inline.js",
+        "tf.min.js",
+        "adaptive_weights.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

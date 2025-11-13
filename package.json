@@ -1,0 +1,10 @@
+{
+  "name": "trendiq-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "test": "echo 'No automated tests available for the static dashboard mockup.'",
+    "generate:inline-manifest": "node scripts/generate-inline-manifest.js"
+  }
+}
