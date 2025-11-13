@@ -16,11 +16,14 @@ const MIME_TYPES = {
 };
 
 function resolvePath(requestPath) {
-  let pathname = decodeURIComponent(requestPath.split('?')[0]);
-  if (pathname === '/' || pathname === '') {
-    pathname = '/dashboard.html';
-  }
-  const filePath = path.join(ROOT, pathname);
+  const rawPath = decodeURIComponent(requestPath.split('?')[0]);
+  const normalized = path
+    .normalize(rawPath)
+    .replace(/^([/\\])+/g, '')
+    .replace(/\.\.(?:[/\\]|$)/g, '');
+
+  const target = normalized === '' ? 'dashboard.html' : normalized;
+  const filePath = path.join(ROOT, target);
   if (!filePath.startsWith(ROOT)) {
     return null;
   }
