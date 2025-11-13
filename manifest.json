@@ -4,8 +4,10 @@
   "version": "1.0.0",
   "description": "Static mock dashboard for the TrendIQ token intelligence console.",
   "action": {
-    "default_title": "TrendIQ Dashboard Mock",
-    "default_popup": "dashboard.html"
+    "default_title": "TrendIQ Dashboard Mock"
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "web_accessible_resources": [
     {
