@@ -275,7 +275,21 @@ const newsFeed = document.getElementById("newsFeed");
 
 async function loadTokenManifest() {
   try {
-    const response = await fetch("token-manifest.json", { cache: "no-store" });
+    const manifestUrl = (() => {
+      if (typeof chrome !== "undefined" && chrome?.runtime?.getURL) {
+        return chrome.runtime.getURL("token-manifest.json");
+      }
+
+      if (window?.location?.protocol === "file:") {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.pathname = currentUrl.pathname.replace(/[^/]*$/, "token-manifest.json");
+        return currentUrl.href;
+      }
+
+      return "token-manifest.json";
+    })();
+
+    const response = await fetch(manifestUrl, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Unexpected status ${response.status}`);
     }
