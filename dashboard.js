@@ -1,4 +1,4 @@
-const tokens = [
+const fallbackTokens = [
   {
     symbol: "SOL",
     name: "Solana",
@@ -252,7 +252,8 @@ const tokens = [
   }
 ];
 
-let activeToken = tokens[0];
+let tokens = [...fallbackTokens];
+let activeToken = tokens[0] || null;
 let currentEventMeta = [];
 let scoreChart;
 
@@ -269,6 +270,23 @@ const rationaleList = document.getElementById("rationaleList");
 const eventTimeline = document.getElementById("eventTimeline");
 const whaleTable = document.getElementById("whaleTable");
 const newsFeed = document.getElementById("newsFeed");
+
+async function loadTokenManifest() {
+  try {
+    const response = await fetch("token-manifest.json", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Unexpected status ${response.status}`);
+    }
+    const manifest = await response.json();
+    if (Array.isArray(manifest.tokens) && manifest.tokens.length) {
+      return manifest.tokens;
+    }
+    console.warn("Token manifest missing a populated tokens array. Falling back to embedded data.");
+  } catch (error) {
+    console.warn("Unable to load token manifest; using embedded dataset instead.", error);
+  }
+  return [...fallbackTokens];
+}
 
 function renderTokenList(list) {
   tokenListEl.innerHTML = "";
@@ -366,6 +384,15 @@ function updateNewsFeed(token) {
 }
 
 function buildChart(token) {
+  if (!token || !Array.isArray(token.scoreTrend)) {
+    if (scoreChart) {
+      scoreChart.destroy();
+      scoreChart = null;
+    }
+    currentEventMeta = [];
+    return;
+  }
+
   const ctx = document.getElementById("scoreChart");
   const labels = token.scoreTrend.map((point) => point.time);
   const scores = token.scoreTrend.map((point) => point.score);
@@ -450,23 +477,45 @@ function buildChart(token) {
 }
 
 function setActiveToken(token) {
-  activeToken = token;
-  activeTokenTitle.textContent = `${token.symbol} / USDC • ${token.bias}`;
-  updateMetrics(token);
-  updateRationale(token);
-  updateTimeline(token);
-  updateWhaleTable(token);
-  updateNewsFeed(token);
-  buildChart(token);
+  activeToken = token || null;
+
   document.querySelectorAll(".token-row").forEach((row) => {
-    row.classList.toggle("active", row.dataset.symbol === token.symbol);
+    row.classList.toggle("active", activeToken && row.dataset.symbol === activeToken.symbol);
   });
+
+  if (!activeToken) {
+    activeTokenTitle.textContent = "Select a token to view insights";
+    metricGrid.innerHTML = "";
+    rationaleList.innerHTML = "";
+    eventTimeline.innerHTML = "";
+    whaleTable.innerHTML = "";
+    newsFeed.innerHTML = "";
+    currentEventMeta = [];
+    if (scoreChart) {
+      scoreChart.destroy();
+      scoreChart = null;
+    }
+    return;
+  }
+
+  activeTokenTitle.textContent = `${activeToken.symbol} / USDC • ${activeToken.bias}`;
+  updateMetrics(activeToken);
+  updateRationale(activeToken);
+  updateTimeline(activeToken);
+  updateWhaleTable(activeToken);
+  updateNewsFeed(activeToken);
+  buildChart(activeToken);
 }
 
 function filterTokens(term) {
   const lower = term.trim().toLowerCase();
   if (!lower) {
     renderTokenList(tokens);
+    if (!activeToken && tokens.length) {
+      setActiveToken(tokens[0]);
+    } else if (!tokens.length) {
+      setActiveToken(null);
+    }
     return tokens;
   }
   const filtered = tokens.filter(
@@ -475,43 +524,56 @@ function filterTokens(term) {
       token.name.toLowerCase().includes(lower)
   );
   renderTokenList(filtered);
+  if (!filtered.length) {
+    setActiveToken(null);
+  } else if (!activeToken || !filtered.includes(activeToken)) {
+    setActiveToken(filtered[0]);
+  }
   return filtered;
 }
 
-renderTokenList(tokens);
-setActiveToken(activeToken);
-
-tokenListEl.addEventListener("click", (event) => {
-  const target = event.target.closest(".token-row");
-  if (!target) return;
-  const token = tokens.find((item) => item.symbol === target.dataset.symbol);
-  if (token) {
-    setActiveToken(token);
+async function bootstrap() {
+  tokens = await loadTokenManifest();
+  if (!Array.isArray(tokens) || !tokens.length) {
+    tokens = [...fallbackTokens];
   }
-});
 
-searchInput.addEventListener("input", (event) => {
-  const filtered = filterTokens(event.target.value);
-  if (filtered.length && !filtered.includes(activeToken)) {
-    setActiveToken(filtered[0]);
-  }
-});
+  activeToken = tokens[0] || null;
+  renderTokenList(tokens);
+  setActiveToken(activeToken);
 
-timeframeFilter.addEventListener("change", (event) => {
-  const timeframe = event.target.value;
-  const labelMap = {
-    "5m": "Short bias",
-    "15m": "Intraday read",
-    "1h": "Macro swing"
-  };
-  activeTokenTitle.textContent = `${activeToken.symbol} / USDC • ${labelMap[timeframe] || activeToken.bias}`;
-});
+  tokenListEl.addEventListener("click", (event) => {
+    const target = event.target.closest(".token-row");
+    if (!target) return;
+    const token = tokens.find((item) => item.symbol === target.dataset.symbol);
+    if (token) {
+      setActiveToken(token);
+    }
+  });
 
-addTokenBtn.addEventListener("click", () => {
-  const manualToken = searchInput.value.trim();
-  if (!manualToken) {
-    alert("Enter a token symbol or contract address to track.");
-    return;
-  }
-  alert(`Mock tracking started for ${manualToken}. Historical data will populate shortly.`);
-});
+  searchInput.addEventListener("input", (event) => {
+    filterTokens(event.target.value);
+  });
+
+  timeframeFilter.addEventListener("change", (event) => {
+    if (!activeToken) return;
+    const timeframe = event.target.value;
+    const labelMap = {
+      "5m": "Short bias",
+      "15m": "Intraday read",
+      "1h": "Macro swing"
+    };
+    activeTokenTitle.textContent = `${activeToken.symbol} / USDC • ${labelMap[timeframe] || activeToken.bias}`;
+  });
+
+  addTokenBtn.addEventListener("click", () => {
+    const manualToken = searchInput.value.trim();
+    if (!manualToken) {
+      alert("Enter a token symbol or contract address to track.");
+      return;
+    }
+    alert(`Mock tracking started for ${manualToken}. Historical data will populate shortly.`);
+  });
+}
+
+bootstrap();

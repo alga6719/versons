@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "start": "node scripts/serve.js",
     "test": "echo 'No automated tests available for the static dashboard mockup.'"
   }
 }

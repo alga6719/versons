@@ -1,0 +1,21 @@
+{
+  "name": "TrendIQ Dashboard Mock",
+  "short_name": "TrendIQ",
+  "start_url": "dashboard.html",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#4f46e5",
+  "description": "Static mock dashboard for the TrendIQ token intelligence console.",
+  "assets": {
+    "html": ["dashboard.html"],
+    "scripts": ["dashboard.js"],
+    "data": ["token-manifest.json"],
+    "thirdParty": [
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+      "https://fonts.gstatic.com",
+      "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js",
+      "https://cdn.jsdelivr.net/npm/heroicons@2.1.1/24/outline/magnifying-glass.svg"
+    ],
+    "notes": "All local files are committed; third-party CDNs can be replaced with vendored assets if offline access is required."
+  }
+}
