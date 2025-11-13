@@ -275,15 +275,16 @@ const newsFeed = document.getElementById("newsFeed");
 
 async function loadTokenManifest() {
   try {
+    if (window?.location?.protocol === "file:") {
+      console.info(
+        "Running from the filesystem; browser sandboxing blocks fetching token-manifest.json. Using embedded dataset."
+      );
+      return [...fallbackTokens];
+    }
+
     const manifestUrl = (() => {
       if (typeof chrome !== "undefined" && chrome?.runtime?.getURL) {
         return chrome.runtime.getURL("token-manifest.json");
-      }
-
-      if (window?.location?.protocol === "file:") {
-        const currentUrl = new URL(window.location.href);
-        currentUrl.pathname = currentUrl.pathname.replace(/[^/]*$/, "token-manifest.json");
-        return currentUrl.href;
       }
 
       return "token-manifest.json";
