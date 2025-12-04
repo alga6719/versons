@@ -253,7 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
       updateLists();
     } else if (type === 'status') {
       log(`Worker: ${msg}`);
-      if (!workerReady && /(Loaded model|Model ready)/.test(msg)) {
+      if (!workerReady && /(Loaded (pretrained )?model|Model ready)/.test(msg)) {
         workerReady = true;
         flushPredictionQueue();
         if (feedRequested) {
