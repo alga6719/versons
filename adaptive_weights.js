@@ -94,6 +94,9 @@ onmessage = async function (e) {
       } catch (err) {
         postMessage({ type: 'error', msg: 'Save failed' });
       }
+    } else if (msg.type === 'status-check') {
+      const readyState = model ? 'Model ready' : 'Model not loaded';
+      postMessage({ type: 'status', msg: readyState });
     }
   } catch (err) {
     console.error(err);
